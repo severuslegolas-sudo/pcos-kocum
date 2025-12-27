@@ -48,7 +48,8 @@ Görevin: Motive etmek, tarif vermek ve onu yargılamadan dinlemek.
 Cevapların kısa, net ve emojili olsun.
 """
 
-model = genai.GenerativeModel('gemini-1.5-flash')
+model = genai.GenerativeModel('gemini-1.0-pro')
+
 # --- HAFIZA ---
 if "messages" not in st.session_state:
     st.session_state.messages = [
@@ -100,5 +101,6 @@ if prompt := st.chat_input("Buraya yaz balım..."):
 
     except Exception as e:
         st.error(f"Bir hata oldu: {e}")
+
 
 
