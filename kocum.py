@@ -1,6 +1,6 @@
 import streamlit as st
 import google.generativeai as genai
-
+import streamlit.components.v1 as components
 # --- AYARLAR ---
 
 
@@ -156,3 +156,4 @@ if prompt := st.chat_input("Buraya yazabilirsin..."):
 
     except Exception as e:
         st.error(f"Bir hata oluştu, internetini kontrol et balım. Hata detayı: {e}")
+
