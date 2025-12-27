@@ -5,7 +5,7 @@ from gtts import gTTS
 import io
 
 # --- AYARLAR ---
-# LÜTFEN YENİ ALDIĞIN API ANAHTARINI BURAYA YAZ (Eskisini sil)
+# LÜTFEN KENDİ API ANAHTARINI BURAYA YAPIŞTIR
 API_KEY = "AIzaSyA7-2GfqPIvxHJykolrM2aOAPXkfzm2g20" 
 
 # --- SAYFA AYARLARI ---
@@ -45,45 +45,43 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# --- YENİ FONKSİYON: DİREKT BAĞLANTI (Kütüphanesiz) ---
+# --- YENİ FONKSİYON: DİREKT BAĞLANTI ---
 def ask_google_direct(history, new_msg):
-    # En garantili model: gemini-1.5-flash
-url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={API_KEY}"
-headers = {'Content-Type': 'application/json'}
+    # DİKKAT: Buradaki boşluklar çok önemli!
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={API_KEY}"
+    headers = {'Content-Type': 'application/json'}
     
-    # Geçmiş konuşmaları Google'ın anlayacağı dile çeviriyoruz
+    # Geçmiş konuşmaları hazırla
     contents = []
-    # Önce sistem talimatını gizlice ekleyelim
     contents.append({"role": "user", "parts": [{"text": SYSTEM_PROMPT + "\n\nKonuşma Başlıyor:"}]})
     
-    # Eski mesajları ekle
     for msg in history:
         role = "user" if msg["role"] == "user" else "model"
         contents.append({"role": role, "parts": [{"text": msg["content"]}]})
     
-    # Yeni mesajı ekle
     contents.append({"role": "user", "parts": [{"text": new_msg}]})
     
     payload = {"contents": contents}
     
     # İsteği gönder
-    response = requests.post(url, headers=headers, json=payload)
-    
-    if response.status_code == 200:
-        return response.json()['candidates'][0]['content']['parts'][0]['text']
-    else:
-        return f"Hata oluştu balım :( Kod: {response.status_code} - {response.text}"
+    try:
+        response = requests.post(url, headers=headers, json=payload)
+        
+        if response.status_code == 200:
+            return response.json()['candidates'][0]['content']['parts'][0]['text']
+        else:
+            return f"Hata oluştu balım :( Kod: {response.status_code} - {response.text}"
+    except Exception as e:
+        return f"Bağlantı hatası: {e}"
 
 # --- SOHBET ---
 if prompt := st.chat_input("Yaz balım..."):
     with st.chat_message("user"):
         st.markdown(prompt)
     
-    # Yapay zekaya sor (Eski listeye eklemeden önce)
     with st.spinner('Nikosu düşünüyor...'):
         bot_reply = ask_google_direct(st.session_state.messages, prompt)
     
-    # Cevabı kaydet ve göster
     st.session_state.messages.append({"role": "user", "content": prompt})
     st.session_state.messages.append({"role": "model", "content": bot_reply})
     
@@ -97,4 +95,3 @@ if prompt := st.chat_input("Yaz balım..."):
             st.audio(audio_bytes, format='audio/mp3')
         except:
             pass
-
