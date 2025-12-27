@@ -2,7 +2,7 @@ import streamlit as st
 import google.generativeai as genai
 import streamlit.components.v1 as components
 # --- AYARLAR ---
-
+# Guncelleme denemesi v1
 
 # --- AYARLAR ---
 # Buraya Google AI Studio'dan aldığın API anahtarını yapıştır
@@ -156,4 +156,5 @@ if prompt := st.chat_input("Buraya yazabilirsin..."):
 
     except Exception as e:
         st.error(f"Bir hata oluştu, internetini kontrol et balım. Hata detayı: {e}")
+
 
