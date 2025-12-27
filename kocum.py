@@ -48,8 +48,8 @@ for message in st.session_state.messages:
 # --- YENİ FONKSİYON: DİREKT BAĞLANTI (Kütüphanesiz) ---
 def ask_google_direct(history, new_msg):
     # En garantili model: gemini-1.5-flash
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={API_KEY}"
-    headers = {'Content-Type': 'application/json'}
+url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={API_KEY}"
+headers = {'Content-Type': 'application/json'}
     
     # Geçmiş konuşmaları Google'ın anlayacağı dile çeviriyoruz
     contents = []
@@ -97,3 +97,4 @@ if prompt := st.chat_input("Yaz balım..."):
             st.audio(audio_bytes, format='audio/mp3')
         except:
             pass
+
