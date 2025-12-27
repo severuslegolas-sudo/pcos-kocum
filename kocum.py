@@ -4,7 +4,7 @@ from gtts import gTTS
 import io
 
 # --- AYARLAR ---
-API_KEY = "SENIN_API_ANAHTARIN"  # Buraya kendi API anahtarını yapıştırmayı unutma!
+API_KEY = "AIzaSyA7-2GfqPIvxHJykolrM2aOAPXkfzm2g20"  # Buraya kendi API anahtarını yapıştırmayı unutma!
 
 # --- SAYFA AYARLARI ---
 st.set_page_config(
@@ -101,3 +101,4 @@ if prompt := st.chat_input("Buraya yaz balım..."):
 
     except Exception as e:
         st.error(f"Bir hata oldu: {e}")
+
