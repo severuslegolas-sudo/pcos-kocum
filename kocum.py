@@ -1,8 +1,7 @@
 import streamlit as st
 import requests
-import edge_tts
-import asyncio
-import os
+from gtts import gTTS
+import io
 import re
 
 # --- AYARLAR ---
@@ -41,52 +40,37 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# --- 1. ADIM: METİN TEMİZLİK ---
-def clean_text_final(text):
-    # Ses motorunu bozan her şeyi sil
-    clean = re.sub(r'[*_#`]', '', text)       # Markdown işaretleri
-    clean = re.sub(r'http\S+', '', clean)     # Linkler
-    # Emojileri sil (Sadece harf, rakam ve noktalama kalsın)
+# --- 1. ADIM: METİN TEMİZLİĞİ ---
+def clean_text_for_gtts(text):
+    # Emojileri ve Markdown işaretlerini temizle
+    # gTTS emojileri okumaya çalışırken saçmalamasın diye siliyoruz
+    clean = re.sub(r'[*_#`]', '', text) 
+    clean = re.sub(r'http\S+', '', clean)
+    # Sadece harf, rakam ve Türkçe karakterleri tut
     clean = re.sub(r'[^a-zA-Z0-9çğıöşüÇĞİÖŞÜ .,!?\-\n]', '', clean)
     return clean.strip()
 
-# --- 2. ADIM: SES OLUŞTURMA (SENKRONİZE YÖNTEM) ---
-async def edge_tts_async(text):
-    voice = "tr-TR-NesrinNeural"
-    communicate = edge_tts.Communicate(text, voice)
-    await communicate.save("output.mp3")
-
-def generate_audio_sync(text):
-    clean = clean_text_final(text)
-    if not clean: return
+# --- 2. ADIM: SES OLUŞTURMA (gTTS - GARANTİLİ) ---
+def play_audio_gtts(text):
+    clean_text = clean_text_for_gtts(text)
     
-    # Eski dosyayı sil
-    if os.path.exists("output.mp3"):
-        try:
-            os.remove("output.mp3")
-        except:
-            pass
+    if not clean_text:
+        return
 
-    # Streamlit üzerinde Async çalıştırmanın en güvenli yolu:
     try:
-        # Mevcut bir döngü var mı kontrol et
-        loop = asyncio.get_event_loop()
-        # Varsa o döngü içinde koştur
-        if loop.is_running():
-            asyncio.ensure_future(edge_tts_async(clean))
-            # Not: Çalışan döngüde sonucu beklemek zordur, 
-            # ancak dosya oluşumu hızlı olduğu için genellikle yakalar.
-        else:
-            loop.run_until_complete(edge_tts_async(clean))
-    except RuntimeError:
-        # Eğer döngü yoksa yeni yarat
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(edge_tts_async(clean))
+        # Sesi hafızada oluştur (Dosya kaydetme derdi yok)
+        tts = gTTS(text=clean_text, lang='tr')
+        audio_bytes = io.BytesIO()
+        tts.write_to_fp(audio_bytes)
+        audio_bytes.seek(0)
         
-    return True
+        # Oynat
+        st.audio(audio_bytes, format='audio/mp3')
+        
+    except Exception as e:
+        st.warning(f"Ses hatası: {e}")
 
-# --- 3. ADIM: GOOGLE MODEL BULUCU ---
+# --- 3. ADIM: OTOMATİK MODEL BULUCU ---
 def get_working_model():
     url = f"https://generativelanguage.googleapis.com/v1beta/models?key={API_KEY}"
     try:
@@ -135,16 +119,6 @@ if prompt := st.chat_input("Yaz balım..."):
     with st.chat_message("model"):
         st.markdown(bot_reply)
         
-        # Hata yoksa sesi oluştur
+        # Hata yoksa sesi çal
         if "Hata" not in bot_reply:
-            with st.spinner('Ses hazırlanıyor...'):
-                generate_audio_sync(bot_reply)
-                
-                # Dosyanın dolmasını bekle ve çal
-                if os.path.exists("output.mp3") and os.path.getsize("output.mp3") > 0:
-                    with open("output.mp3", "rb") as f:
-                        audio_bytes = f.read()
-                    st.audio(audio_bytes, format="audio/mp3")
-                else:
-                    # Dosya boşsa veya oluşmadıysa uyarı ver (hata kodu basma)
-                    st.warning("Ses şu an oluşturulamadı (Sunucu yoğunluğu).")
+            play_audio_gtts(bot_reply)
