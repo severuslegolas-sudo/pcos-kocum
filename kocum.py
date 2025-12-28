@@ -1,14 +1,21 @@
 import streamlit as st
 import requests
-from gtts import gTTS
-import io
+from elevenlabs.client import ElevenLabs
 import re
 
-# --- AYARLAR ---
+# --- AYARLAR VE GÜVENLİK ---
+# 1. Google Anahtarı Kontrolü
 if "GOOGLE_API_KEY" in st.secrets:
-    API_KEY = st.secrets["GOOGLE_API_KEY"]
+    GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
 else:
-    st.error("API Anahtarı bulunamadı! Secrets ayarlarını kontrol et.")
+    st.error("Google API Anahtarı bulunamadı! Secrets ayarlarını kontrol et.")
+    st.stop()
+
+# 2. ElevenLabs Anahtarı Kontrolü
+if "ELEVEN_API_KEY" in st.secrets:
+    ELEVEN_API_KEY = st.secrets["ELEVEN_API_KEY"]
+else:
+    st.error("ElevenLabs API Anahtarı bulunamadı! Lütfen Adım 2'yi tekrar yap.")
     st.stop()
 
 # --- SAYFA AYARLARI ---
@@ -40,39 +47,44 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# --- 1. ADIM: METİN TEMİZLİĞİ ---
-def clean_text_for_gtts(text):
-    # Emojileri ve Markdown işaretlerini temizle
-    # gTTS emojileri okumaya çalışırken saçmalamasın diye siliyoruz
-    clean = re.sub(r'[*_#`]', '', text) 
+# --- 1. ADIM: SES İÇİN TEMİZLİK ---
+def clean_text_final(text):
+    # Yıldızları, linkleri ve emojileri temizle
+    # ElevenLabs temiz metni daha güzel okur
+    clean = re.sub(r'[*_#`]', '', text)
     clean = re.sub(r'http\S+', '', clean)
-    # Sadece harf, rakam ve Türkçe karakterleri tut
     clean = re.sub(r'[^a-zA-Z0-9çğıöşüÇĞİÖŞÜ .,!?\-\n]', '', clean)
     return clean.strip()
 
-# --- 2. ADIM: SES OLUŞTURMA (gTTS - GARANTİLİ) ---
-def play_audio_gtts(text):
-    clean_text = clean_text_for_gtts(text)
-    
-    if not clean_text:
-        return
+# --- 2. ADIM: ELEVENLABS SES OLUŞTURMA ---
+def play_elevenlabs_audio(text):
+    clean = clean_text_final(text)
+    if not clean: return
 
     try:
-        # Sesi hafızada oluştur (Dosya kaydetme derdi yok)
-        tts = gTTS(text=clean_text, lang='tr')
-        audio_bytes = io.BytesIO()
-        tts.write_to_fp(audio_bytes)
-        audio_bytes.seek(0)
+        # ElevenLabs'e bağlan
+        client = ElevenLabs(api_key=ELEVEN_API_KEY)
         
-        # Oynat
+        # Sesi oluştur
+        # Model: 'eleven_multilingual_v2' -> Bu model Türkçeyi mükemmel konuşur.
+        # Voice: 'Rachel' -> Tatlı bir kadın sesi.
+        audio_generator = client.generate(
+            text=clean,
+            voice="Rachel", 
+            model="eleven_multilingual_v2"
+        )
+        
+        # Gelen sesi birleştir ve çal
+        audio_bytes = b"".join(audio_generator)
         st.audio(audio_bytes, format='audio/mp3')
         
     except Exception as e:
-        st.warning(f"Ses hatası: {e}")
+        # Eğer kredi biterse veya hata olursa
+        st.warning(f"Ses oluşturulamadı (Kredi bitmiş olabilir): {e}")
 
-# --- 3. ADIM: OTOMATİK MODEL BULUCU ---
+# --- 3. ADIM: GOOGLE MODEL BULUCU ---
 def get_working_model():
-    url = f"https://generativelanguage.googleapis.com/v1beta/models?key={API_KEY}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models?key={GOOGLE_API_KEY}"
     try:
         response = requests.get(url)
         data = response.json()
@@ -87,7 +99,7 @@ def get_working_model():
 # --- 4. ADIM: SOHBET ---
 def ask_google(history, new_msg):
     model_name = get_working_model()
-    url = f"https://generativelanguage.googleapis.com/v1beta/{model_name}:generateContent?key={API_KEY}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/{model_name}:generateContent?key={GOOGLE_API_KEY}"
     headers = {'Content-Type': 'application/json'}
     
     contents = [{"role": "user", "parts": [{"text": SYSTEM_PROMPT}]}]
@@ -119,6 +131,5 @@ if prompt := st.chat_input("Yaz balım..."):
     with st.chat_message("model"):
         st.markdown(bot_reply)
         
-        # Hata yoksa sesi çal
         if "Hata" not in bot_reply:
-            play_audio_gtts(bot_reply)
+            play_elevenlabs_audio(bot_reply)
