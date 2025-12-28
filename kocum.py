@@ -1,7 +1,5 @@
 import streamlit as st
 import requests
-import asyncio
-import edge_tts
 import os
 import re
 
@@ -41,72 +39,36 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# --- 1. ADIM: GELİŞMİŞ METİN TEMİZLİĞİ (EMOJİ SAVAR) ---
-def clean_text_for_speech(text):
-    # 1. Yıldız, kare, alt tire gibi markdown işaretlerini sil
-    text = re.sub(r'[*_#`]', '', text)
-    
-    # 2. Linkleri sil (http ile başlayan her şey)
-    text = re.sub(r'http\S+', '', text)
-    
-    # 3. Sadece Harfleri, Rakamları ve Noktalama İşaretlerini Tut
-    # (Bu işlem emojileri yok eder, çünkü emojiler harf değildir)
-    # Türkçeye özgü karakterleri koruyoruz (çğıöşüÇĞİÖŞÜ)
-    cleaned = re.sub(r'[^a-zA-Z0-9çğıöşüÇĞİÖŞÜ .,!?\-\n]', '', text)
-    
-    return cleaned.strip()
+# --- 1. ADIM: TEMİZLİK (KOMUT SATIRI İÇİN) ---
+def clean_for_shell(text):
+    # Emojileri ve garip işaretleri sil
+    # Sadece harfler, rakamlar ve basit noktalama işaretleri kalsın
+    clean = re.sub(r'[^a-zA-Z0-9çğıöşüÇĞİÖŞÜ .,!?\-\n]', ' ', text)
+    # Tırnak işaretlerini sil (Komutu bozmasın diye)
+    clean = clean.replace('"', '').replace("'", "")
+    return clean.strip()
 
-# --- 2. ADIM: SES OLUŞTURMA ---
-async def edge_tts_generate(text):
-    voice = "tr-TR-NesrinNeural"
-    output_file = "output.mp3"
-    communicate = edge_tts.Communicate(text, voice)
-    await communicate.save(output_file)
-
-def play_audio(text):
-    # Temizlenmiş metni al
-    clean = clean_text_for_speech(text)
+# --- 2. ADIM: BASİT SES OLUŞTURMA (ARKA KAPI YÖNTEMİ) ---
+def generate_audio_simple(text):
+    clean_text = clean_for_shell(text)
     
-    # Eğer temizlendikten sonra geriye hiçbir şey kalmadıysa (sadece emoji atmışsa) ses çalma
-    if not clean or len(clean) < 2:
+    if not clean_text:
         return
         
-    try:
-        # Asenkron döngü yönetimi
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            
-        if loop.is_running():
-            asyncio.ensure_future(edge_tts_generate(clean))
-        else:
-            loop.run_until_complete(edge_tts_generate(clean))
-            
-        if os.path.exists("output.mp3"):
-            with open("output.mp3", "rb") as f:
-                audio_bytes = f.read()
-            st.audio(audio_bytes, format="audio/mp3")
-            
-    except Exception as e:
-        # Hata olursa kullanıcıya yansıtma, loga yaz
-        print(f"Ses hatası: {e}")
+    # Eski dosyayı sil
+    if os.path.exists("output.mp3"):
+        os.remove("output.mp3")
+    
+    # Python kodu yerine direkt sistem komutu kullanıyoruz (Daha garanti)
+    # edge-tts programını direkt çalıştırıyoruz
+    command = f'edge-tts --text "{clean_text}" --write-media output.mp3 --voice tr-TR-NesrinNeural'
+    os.system(command)
 
-# --- 3. ADIM: SOHBET VE MODEL ---
+# --- 3. ADIM: GOOGLE BAĞLANTISI ---
 @st.cache_resource
 def get_best_model():
-    url = f"https://generativelanguage.googleapis.com/v1beta/models?key={API_KEY}"
-    try:
-        response = requests.get(url)
-        data = response.json()
-        if "models" in data:
-            for model in data["models"]:
-                if "generateContent" in model["supportedGenerationMethods"]:
-                    return model["name"]
-        return "models/gemini-1.5-flash"
-    except:
-        return "models/gemini-1.5-flash"
+    # Hata riskini sıfıra indirmek için direkt 1.5-Flash kullanıyoruz
+    return "models/gemini-1.5-flash"
 
 def ask_google(history, new_msg):
     model_name = get_best_model()
@@ -124,7 +86,7 @@ def ask_google(history, new_msg):
         if response.status_code == 200:
             return response.json()['candidates'][0]['content']['parts'][0]['text']
         else:
-            return f"Hata: {response.text}"
+            return f"Hata oldu balım: {response.text}"
     except Exception as e:
         return f"Bağlantı sorunu: {str(e)}"
 
@@ -134,12 +96,19 @@ if prompt := st.chat_input("Yaz balım..."):
         st.markdown(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
     
-    with st.spinner('Yazıyor...'):
+    with st.spinner('Nikosu düşünüyor...'):
         bot_reply = ask_google(st.session_state.messages[:-1], prompt)
     
     st.session_state.messages.append({"role": "model", "content": bot_reply})
     
     with st.chat_message("model"):
         st.markdown(bot_reply)
+        
+        # Sesi oluştur ve çal
         if "Hata" not in bot_reply:
-            play_audio(bot_reply)
+            generate_audio_simple(bot_reply)
+            
+            if os.path.exists("output.mp3"):
+                with open("output.mp3", "rb") as f:
+                    audio_bytes = f.read()
+                st.audio(audio_bytes, format="audio/mp3")
