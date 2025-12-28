@@ -3,14 +3,14 @@ import requests
 import asyncio
 import edge_tts
 import os
+import re # Metin temizliği için gerekli
 
 # --- AYARLAR ---
-# Şifreyi Streamlit Secrets kasasından çekiyoruz
-# Eğer kasa yapmadıysan buraya: API_KEY = "kendi_sifren" yaz.
 if "GOOGLE_API_KEY" in st.secrets:
     API_KEY = st.secrets["GOOGLE_API_KEY"]
 else:
-    st.error("API Anahtarı bulunamadı! Lütfen Secrets ayarlarını yap.")
+    # Eğer secrets çalışmazsa buraya manuel yazabilirsin ama secrets daha iyidir.
+    st.error("API Anahtarı bulunamadı! Lütfen Secrets ayarlarını kontrol et.")
     st.stop()
 
 # --- SAYFA AYARLARI ---
@@ -29,10 +29,10 @@ with st.expander("📋 GÜNLÜK MENÜM", expanded=False):
 
 # --- NİKOSU KİMLİĞİ ---
 SYSTEM_PROMPT = """
-Sen 'PCOS Nikosu'sun. Karşındaki kişi senin en yakın kız arkadaşın, ona 'Balım', 'Kuzum', 'Çiçeğim' gibi samimi hitap et.
-ASLA robot gibi konuşma. WhatsApp'tan yazışıyormuş gibi "ya", "hani", "aynen" gibi kelimeler kullan.
+Sen 'PCOS Nikosu'sun. Karşındaki kişi senin en yakın kız arkadaşın.
+Ona 'Balım', 'Kuzum', 'Çiçeğim' gibi samimi hitap et.
+WhatsApp'tan yazışıyormuş gibi samimi konuş. "Size nasıl yardımcı olabilirim" ASLA deme.
 Kullanıcı glütensiz besleniyor. Kaçamak yaparsa tatlı sert kız ama moral ver.
-Kısa, net ve emojili cevaplar ver.
 """
 
 # --- HAFIZA ---
@@ -43,16 +43,31 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# --- YENİ NESİL SES FONKSİYONU (DOĞAL SES) ---
+# --- SES İÇİN METİN TEMİZLEYİCİ ---
+def clean_text_for_speech(text):
+    # Yıldızları (*), kareleri (#) ve markdown işaretlerini temizle
+    clean = re.sub(r'[*_#`]', '', text)
+    return clean
+
+# --- YENİ NESİL SES FONKSİYONU ---
 async def text_to_speech_edge(text):
-    # 'tr-TR-NesrinNeural' sesi çok doğaldır.
-    voice = "tr-TR-NesrinNeural"
-    communicate = edge_tts.Communicate(text, voice)
-    await communicate.save("output.mp3")
+    voice = "tr-TR-NesrinNeural" # En doğal Türkçe kadın sesi
+    output_file = "output.mp3"
+    
+    # Metni temizle ki motor bozulmasın
+    cleaned_text = clean_text_for_speech(text)
+    
+    # Eğer metin boşsa işlem yapma
+    if not cleaned_text.strip():
+        return
+        
+    communicate = edge_tts.Communicate(cleaned_text, voice)
+    await communicate.save(output_file)
 
 # --- MODEL SEÇİMİ VE SOHBET ---
 @st.cache_resource
 def get_best_model():
+    # Model bulamazsa garanti olanı döndürür
     url = f"https://generativelanguage.googleapis.com/v1beta/models?key={API_KEY}"
     try:
         response = requests.get(url)
@@ -98,23 +113,32 @@ if prompt := st.chat_input("Yaz balım..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     
     with st.spinner('Nikosu düşünüyor...'):
-        bot_reply = ask_google_auto(st.session_state.messages[:-1], prompt) # Son mesaj hariç geçmişi gönder
+        bot_reply = ask_google_auto(st.session_state.messages[:-1], prompt)
     
     st.session_state.messages.append({"role": "model", "content": bot_reply})
     
     with st.chat_message("model"):
         st.markdown(bot_reply)
         
-        # --- SES OLUŞTURMA KISMI ---
+        # --- SES OLUŞTURMA ---
         try:
-            # Ses dosyasını oluştur
+            # Önceki ses dosyasını temizle (çakışma olmasın)
+            if os.path.exists("output.mp3"):
+                os.remove("output.mp3")
+                
+            # Yeni sesi oluştur
             asyncio.run(text_to_speech_edge(bot_reply))
             
-            # Dosyayı okuyup oynatıcıya ver
+            # Dosyayı oynat
             if os.path.exists("output.mp3"):
                 audio_file = open("output.mp3", "rb")
                 audio_bytes = audio_file.read()
                 st.audio(audio_bytes, format="audio/mp3")
                 audio_file.close()
+            else:
+                st.warning("Ses dosyası oluşturulamadı (Sunucu yoğun olabilir).")
+                
         except Exception as e:
-            st.warning(f"Ses oluşturulamadı: {e}")
+            # Kullanıcıya teknik hata gösterme, sadece logla
+            print(f"Ses hatası: {e}")
+            st.info("Ses şu an yüklenemedi ama metin yukarıda 👆")
