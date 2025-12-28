@@ -9,8 +9,6 @@ import re
 if "GOOGLE_API_KEY" in st.secrets:
     API_KEY = st.secrets["GOOGLE_API_KEY"]
 else:
-    # Kasa yoksa manuel giriş (tavsiye edilmez ama test için gerekebilir)
-    # API_KEY = "BURAYA_ANAHTAR_GELEBILIR"
     st.error("API Anahtarı bulunamadı! Secrets ayarlarını kontrol et.")
     st.stop()
 
@@ -43,11 +41,32 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# --- METİN TEMİZLEME ---
+# --- 1. ADIM: OTOMATİK MODEL BULUCU (ÇÖZÜM BURADA) ---
+@st.cache_resource
+def get_best_model():
+    # Google'a "Elinizdeki modelleri ver" diyoruz
+    url = f"https://generativelanguage.googleapis.com/v1beta/models?key={API_KEY}"
+    try:
+        response = requests.get(url)
+        data = response.json()
+        
+        # Listeyi tarayıp 'generateContent' yapabilen ilk modeli alıyoruz
+        if "models" in data:
+            for model in data["models"]:
+                if "generateContent" in model["supportedGenerationMethods"]:
+                    return model["name"] # Örn: models/gemini-1.5-flash döner
+        
+        # Liste boşsa varsayılanı döndür
+        return "models/gemini-1.5-flash"
+    except:
+        # Bağlantı hatası olursa varsayılanı döndür
+        return "models/gemini-1.5-flash"
+
+# --- 2. ADIM: SES OLUŞTURMA ---
 def clean_text(text):
+    # Okunması zor işaretleri temizle
     return re.sub(r'[*_#`]', '', text)
 
-# --- SES OLUŞTURMA (DÖNGÜ DÜZELTMELİ) ---
 async def edge_tts_generate(text):
     voice = "tr-TR-NesrinNeural"
     output_file = "output.mp3"
@@ -56,12 +75,12 @@ async def edge_tts_generate(text):
 
 def play_audio(text):
     clean = clean_text(text)
-    if not clean.strip():
+    # Eğer metin bir hata mesajıysa (içinde 'error' geçiyorsa) okuma
+    if not clean.strip() or "error" in clean.lower() or "hata" in clean.lower():
         return
         
     try:
-        # Mevcut bir döngü varsa onu kullan, yoksa yeni oluştur
-        # Streamlit bulut ortamında bu kısım kritiktir
+        # Asenkron döngü yönetimi (Loop Fix)
         try:
             loop = asyncio.get_event_loop()
         except RuntimeError:
@@ -69,32 +88,25 @@ def play_audio(text):
             asyncio.set_event_loop(loop)
             
         if loop.is_running():
-            # Eğer döngü zaten çalışıyorsa (Streamlit bazen yapar) görevi ekle
-            future = asyncio.ensure_future(edge_tts_generate(clean))
-            # Streamlit'te çalışan döngüyü beklemek zor olduğu için
-            # burada alternatif bir yöntem deniyoruz:
-            loop.run_until_complete(edge_tts_generate(clean))
+            asyncio.ensure_future(edge_tts_generate(clean))
         else:
             loop.run_until_complete(edge_tts_generate(clean))
             
-        # Sesi Çal
         if os.path.exists("output.mp3"):
             with open("output.mp3", "rb") as f:
                 audio_bytes = f.read()
             st.audio(audio_bytes, format="audio/mp3")
             
     except Exception as e:
-        # HATAYI GİZLEME, GÖSTER
-        st.error(f"⚠️ Ses Hatası: {str(e)}")
+        st.warning(f"Ses çalınamadı: {e}")
 
-# --- GOOGLE MODEL ---
-@st.cache_resource
-def get_model_url():
-    # Model bulma işini basitleştirdik, direkt Pro kullanıyoruz hata riskini azaltmak için
-    return f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={API_KEY}"
-
+# --- 3. ADIM: SOHBET ---
 def ask_google(history, new_msg):
-    url = get_model_url()
+    # Otomatik bulunan modeli al
+    model_name = get_best_model()
+    
+    # URL'yi oluştur
+    url = f"https://generativelanguage.googleapis.com/v1beta/{model_name}:generateContent?key={API_KEY}"
     headers = {'Content-Type': 'application/json'}
     
     contents = [{"role": "user", "parts": [{"text": SYSTEM_PROMPT}]}]
@@ -108,7 +120,8 @@ def ask_google(history, new_msg):
         if response.status_code == 200:
             return response.json()['candidates'][0]['content']['parts'][0]['text']
         else:
-            return f"Hata: {response.text}"
+            # Hata kodunu direkt döndür
+            return f"Hata oluştu: {response.text}"
     except Exception as e:
         return f"Bağlantı sorunu: {str(e)}"
 
@@ -125,5 +138,6 @@ if prompt := st.chat_input("Yaz balım..."):
     
     with st.chat_message("model"):
         st.markdown(bot_reply)
-        # Ses fonksiyonunu çağır
-        play_audio(bot_reply)
+        # Sadece mesaj başarılıysa ses çal
+        if "Hata" not in bot_reply:
+            play_audio(bot_reply)
