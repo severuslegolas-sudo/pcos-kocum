@@ -31,9 +31,9 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- YEMEK VERİ TABANI (ARALIKLI ORUÇ UYUMLU) ---
+# --- YEMEK VERİ TABANI ---
 
-# Sabah artık yemek yok, sadece sıvı önerileri var
+# Hafta İçi Sabahları (Sıvı)
 SABAH_SIVILARI = [
     "☕ Sade Filtre Kahve (Sütsüz/Şekersiz)",
     "🍵 Yeşil Çay + Yarım Limon",
@@ -42,35 +42,51 @@ SABAH_SIVILARI = [
     "🌿 Kiraz Sapı Çayı (Ödem atıcı)"
 ]
 
-# Öğle (İlk Öğün - Doyurucu)
-OGLE = [
-    "Izgara Tavuk Göğsü + Bol Yeşillik + 10 Badem",
-    "Ton Balıklı Büyük Salata + Zeytinyağı Soslu",
-    "3 Yumurtalı Mantarlı Omlet + Yarım Avokado (İlk öğün)",
-    "Zeytinyağlı Yeşil Mercimek + Yoğurt",
-    "Kıymalı Kabak Sote + Ceviz",
-    "Haşlanmış Yumurta + Beyaz Peynir + Domates/Salatalık Söğüş",
-    "Kinoalı Tavuklu Bowl (Bol lifli)"
+# Hafta Sonu Sabahları (Gerçek Kahvaltı)
+KAHVALTI_WEEKEND = [
+    "🍳 Menemen + 1 Dilim Karabuğday Ekmeği",
+    "🥑 2 Haşlanmış Yumurta + Yarım Avokado + Yeşillik",
+    "🧀 Peynirli Maydanozlu Omlet + 5 Zeytin",
+    "🥞 Yulaflı Muzlu Pankek (Şekersiz)",
+    "🍅 Sahanda Yumurta + Domates/Salatalık Söğüş"
 ]
 
-# Akşam (Hafif ve Erken)
+# Öğle (Doyurucu)
+OGLE = [
+    "Izgara Tavuk Göğsü + Bol Yeşillik",
+    "Ton Balıklı Büyük Salata + Limon Soslu",
+    "3 Yumurtalı Mantarlı Omlet (Hafta içi ilk öğün)",
+    "Zeytinyağlı Yeşil Mercimek + Yoğurt",
+    "Kıymalı Kabak Sote + Ceviz",
+    "Haşlanmış Yumurta + Beyaz Peynir + Salata",
+    "Kinoalı Tavuklu Bowl"
+]
+
+# Akşam (Hafif)
 AKSAM = [
     "Fırın Somon + Haşlanmış Kuşkonmaz",
     "Zeytinyağlı Enginar + Dereotu",
     "Etli Bamya Yemeği (Pirinçsiz)",
     "Fırın Mücver (Unsuz) + Sarımsaklı Yoğurt",
     "Kıymalı Karnabahar Graten",
-    "Brokoli Çorbası + Izgara Tavuk Parçaları",
+    "Brokoli Çorbası + Izgara Tavuk",
     "Zeytinyağlı Taze Fasulye"
 ]
 
-# --- HAFTALIK MENÜ OLUŞTURUCU ---
+# --- HAFTALIK MENÜ OLUŞTURUCU (AKILLI MOD) ---
 def create_weekly_menu():
     days = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"]
     menu = {}
     for day in days:
+        # Hafta Sonu mu?
+        if day in ["Cumartesi", "Pazar"]:
+            sabah_secimi = f"🎉 HAFTA SONU KEYFİ: {random.choice(KAHVALTI_WEEKEND)}"
+        else:
+            # Hafta İçi (IF)
+            sabah_secimi = f"🚫 IF (Açlık): {random.choice(SABAH_SIVILARI)}"
+
         menu[day] = {
-            "Sabah": f"🚫 YEMEK YOK (IF) - {random.choice(SABAH_SIVILARI)}",
+            "Sabah": sabah_secimi,
             "Ogle": random.choice(OGLE),
             "Aksam": random.choice(AKSAM)
         }
@@ -94,48 +110,53 @@ current_day, menu_today = get_todays_menu()
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/4322/4322992.png", width=80)
     st.title(f"📅 {current_day}")
-    st.caption("Aralıklı Oruç Planın:")
+    st.caption("Bugünkü Planın:")
     
-    st.info(f"⏳ **Sabah (Açlık):**\n{menu_today['Sabah']}")
-    st.success(f"🥗 **Öğle (İlk Öğün):**\n{menu_today['Ogle']}")
-    st.warning(f"🍽️ **Akşam (Son Öğün):**\n{menu_today['Aksam']}")
-    st.error("🍵 **Gece Kürü:** Aslan Pençesi Çayı")
+    # Sabah kutusunun rengini güne göre değiştir
+    if "HAFTA SONU" in menu_today['Sabah']:
+        st.success(f"🍳 **Sabah:**\n{menu_today['Sabah']}")
+    else:
+        st.info(f"⏳ **Sabah:**\n{menu_today['Sabah']}")
+        
+    st.success(f"🥗 **Öğle:**\n{menu_today['Ogle']}")
+    st.warning(f"🍽️ **Akşam:**\n{menu_today['Aksam']}")
+    st.error("🍵 **Gece:** Aslan Pençesi Kürü")
     
     st.markdown("---")
-    st.write("💧 *Açlık pencerende bol su içmeyi unutma balım!*")
+    st.write("💧 *Bol su içmeyi unutma balım!*")
 
 # --- ANA EKRAN ---
 st.title("🌸 PCOS Nikosu")
-st.write("Senin kişisel yaşam koçun ve diyet arkadaşın!")
+st.write("Hafta içi disiplin, hafta sonu ödül! Dengeli yaşam koçun.")
 
 # SEKMELER
 tab1, tab2 = st.tabs(["💬 Sohbet Et", "📅 Haftalık Menü Listesi"])
 
 # --- SEKME 1: SOHBET ---
 with tab1:
-    # NİKOSU KİMLİĞİ (Güncellendi: IF Yaptığını Biliyor)
     SYSTEM_PROMPT = f"""
     Sen 'PCOS Nikosu'sun. En yakın kız arkadaş gibi samimi konuş.
-    Kullanıcı 'Aralıklı Oruç' (IF) yapıyor, sabahları kahvaltı ETMİYOR.
+    Kullanıcı hafta içi IF yapıyor (kahvaltı yok), ama HAFTA SONLARI kahvaltı yapıyor.
     
-    Bugünkü planı:
-    Sabah: {menu_today['Sabah']} (Sadece sıvı)
+    Bugün günlerden: {current_day}
+    Bugünkü menüsü:
+    Sabah: {menu_today['Sabah']}
     Öğle: {menu_today['Ogle']}
     Akşam: {menu_today['Aksam']}
     
-    Eğer 'Kahvaltı ne yiyeyim?' derse 'Kız unuttun mu oruçtayız, sadece kahve/su içiyoruz' diye uyar.
+    Eğer bugün hafta içi ise ve kahvaltı sorarsa 'Kız bugün hafta içi, oruçtayız unuttun mu?' de.
+    Ama hafta sonu ise 'Afiyet olsun balım kahvaltını yap' de.
     Hitaplar: Balım, Kuzum, Fıstığım.
     ASLA resmi konuşma.
     """
 
     if "messages" not in st.session_state:
-        st.session_state.messages = [{"role": "model", "content": "Selam balım! Aralıklı orucun nasıl gidiyor? Açlık durumun nasıl, dayanabiliyor musun? 🌸"}]
+        st.session_state.messages = [{"role": "model", "content": "Selam balım! Menünü güncelledim, hafta sonu kahvaltını ekledim. Nasılsın? 🌸"}]
 
     for message in st.session_state.messages:
         with st.chat_message(message["role"], avatar="🌸" if message["role"] == "model" else "👤"):
             st.markdown(message["content"])
 
-    # Ses Fonksiyonları (gTTS)
     def clean_text_for_gtts(text):
         clean = re.sub(r'[*_#`]', '', text) 
         clean = re.sub(r'http\S+', '', clean)
@@ -154,24 +175,30 @@ with tab1:
         except:
             pass
 
-    # Google Model
+    # --- HATA DÜZELTİLMİŞ GOOGLE FONKSİYONU ---
     def ask_google(history, new_msg):
         try:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models?key={API_KEY}"
-            model = "models/gemini-pro"
-            gen_url = f"https://generativelanguage.googleapis.com/v1beta/{model}:generateContent?key={API_KEY}"
+            # HATA ÇÖZÜMÜ: Daha hızlı ve kararlı olan "gemini-1.5-flash" modelini zorluyoruz.
+            model = "models/gemini-1.5-flash"
+            
+            url = f"https://generativelanguage.googleapis.com/v1beta/{model}:generateContent?key={API_KEY}"
             headers = {'Content-Type': 'application/json'}
+            
             contents = [{"role": "user", "parts": [{"text": SYSTEM_PROMPT}]}]
             for msg in history:
                 role = "user" if msg["role"] == "user" else "model"
                 contents.append({"role": role, "parts": [{"text": msg["content"]}]})
             contents.append({"role": "user", "parts": [{"text": new_msg}]})
-            res = requests.post(gen_url, headers=headers, json={"contents": contents})
+            
+            res = requests.post(url, headers=headers, json={"contents": contents})
+            
             if res.status_code == 200:
                 return res.json()['candidates'][0]['content']['parts'][0]['text']
-            return "Şu an bağlantıda minik bir pürüz var balım."
-        except:
-            return "İnternetinde sorun olabilir mi kuzum?"
+            else:
+                # Hata kodunu görelim ki çözelim
+                return f"Google amca cevap vermedi balım, hata kodu: {res.status_code}"
+        except Exception as e:
+            return f"İnternet bağlantında bir sorun olabilir mi kuzum? ({str(e)})"
 
     if prompt := st.chat_input("Nikosu'ya yaz..."):
         with st.chat_message("user", avatar="👤"):
@@ -182,14 +209,15 @@ with tab1:
         st.session_state.messages.append({"role": "model", "content": reply})
         with st.chat_message("model", avatar="🌸"):
             st.markdown(reply)
-            play_audio_gtts(reply)
+            if "hata" not in reply.lower():
+                play_audio_gtts(reply)
 
 # --- SEKME 2: HAFTALIK MENÜ ---
 with tab2:
     col_h1, col_h2 = st.columns([3, 1])
     with col_h1:
-        st.header("🗓️ Bu Haftaki IF Planın")
-        st.write("Aralıklı Oruç (16/8) düzenine göre hazırlandı! Sabahlar boş.")
+        st.header("🗓️ Bu Haftaki Dengeli Planın")
+        st.write("Hafta içi IF (Oruç), Hafta Sonu Kahvaltı keyfi! 🥐")
     with col_h2:
         if st.button("🔄 Listeyi Yenile"):
             st.session_state.weekly_menu = create_weekly_menu()
@@ -200,12 +228,16 @@ with tab2:
     
     c1, c2 = st.columns(2)
     for i, day in enumerate(days_order):
+        # Hafta sonu mu kontrolü (Renklendirme için)
+        bg_color = "#fefce8" if day in ["Cumartesi", "Pazar"] else "#fff"
+        border_color = "#ca8a04" if day in ["Cumartesi", "Pazar"] else "#db2777"
+        
         card_html = f"""
-        <div class="menu-card">
-            <h3 style="margin:0; color:#be185d;">{day}</h3>
-            <p style="color:#6b7280;"><b>⏳ Sabah:</b> {my_menu[day]['Sabah']}</p>
-            <p><b>🥗 İlk Öğün (Öğle):</b> {my_menu[day]['Ogle']}</p>
-            <p><b>🍽️ Son Öğün (Akşam):</b> {my_menu[day]['Aksam']}</p>
+        <div style="background-color:{bg_color}; padding: 15px; border-radius: 10px; margin-bottom: 10px; border-left: 5px solid {border_color}; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+            <h3 style="margin:0; color:{border_color};">{day}</h3>
+            <p style="color:#6b7280;"><b>🍳 Sabah:</b> {my_menu[day]['Sabah']}</p>
+            <p><b>🥗 Öğle:</b> {my_menu[day]['Ogle']}</p>
+            <p><b>🍽️ Akşam:</b> {my_menu[day]['Aksam']}</p>
         </div>
         """
         if i % 2 == 0: c1.markdown(card_html, unsafe_allow_html=True)
@@ -217,7 +249,7 @@ st.subheader("🧘‍♀️ Günlük Egzersiz Önerileri")
 v1, v2, v3 = st.columns(3)
 with v1:
     st.video("https://www.youtube.com/watch?v=inpok4MKVLM")
-    st.caption("🌞 Sabah Yogası (Aç Karnına Çok İyi Gelir)")
+    st.caption("🌞 Sabah Yogası")
 with v2:
     st.video("https://www.youtube.com/watch?v=enYITYwvPAQ")
     st.caption("🚶‍♀️ Evde Yürüyüş")
