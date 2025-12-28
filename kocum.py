@@ -3,14 +3,15 @@ import requests
 import asyncio
 import edge_tts
 import os
-import re # Metin temizliği için gerekli
+import re
 
 # --- AYARLAR ---
 if "GOOGLE_API_KEY" in st.secrets:
     API_KEY = st.secrets["GOOGLE_API_KEY"]
 else:
-    # Eğer secrets çalışmazsa buraya manuel yazabilirsin ama secrets daha iyidir.
-    st.error("API Anahtarı bulunamadı! Lütfen Secrets ayarlarını kontrol et.")
+    # Kasa yoksa manuel giriş (tavsiye edilmez ama test için gerekebilir)
+    # API_KEY = "BURAYA_ANAHTAR_GELEBILIR"
+    st.error("API Anahtarı bulunamadı! Secrets ayarlarını kontrol et.")
     st.stop()
 
 # --- SAYFA AYARLARI ---
@@ -23,85 +24,91 @@ with st.expander("📋 GÜNLÜK MENÜM", expanded=False):
     st.markdown("""
     * **Sabah:** Sirkeli su 💧
     * **Öğle:** Sebze + Protein 🥗
-    * **Akşam:** Sebze + Yoğurt (Ekmek yok) 🚫🍞
     * **Gece:** Aslan pençesi 🌿
     """)
 
 # --- NİKOSU KİMLİĞİ ---
 SYSTEM_PROMPT = """
-Sen 'PCOS Nikosu'sun. Karşındaki kişi senin en yakın kız arkadaşın.
-Ona 'Balım', 'Kuzum', 'Çiçeğim' gibi samimi hitap et.
-WhatsApp'tan yazışıyormuş gibi samimi konuş. "Size nasıl yardımcı olabilirim" ASLA deme.
-Kullanıcı glütensiz besleniyor. Kaçamak yaparsa tatlı sert kız ama moral ver.
+Sen 'PCOS Nikosu'sun. En yakın kız arkadaş gibi samimi konuş.
+Hitaplar: Balım, Kuzum, Çiçeğim.
+ASLA 'Size nasıl yardımcı olabilirim' deme.
+Kısa, net ve emojili cevaplar ver.
 """
 
 # --- HAFIZA ---
 if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "model", "content": "Selam balım! Ben geldim, nasılsın bugün? 🌸"}]
+    st.session_state.messages = [{"role": "model", "content": "Selam balım! Ben geldim. 🌸"}]
 
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# --- SES İÇİN METİN TEMİZLEYİCİ ---
-def clean_text_for_speech(text):
-    # Yıldızları (*), kareleri (#) ve markdown işaretlerini temizle
-    clean = re.sub(r'[*_#`]', '', text)
-    return clean
+# --- METİN TEMİZLEME ---
+def clean_text(text):
+    return re.sub(r'[*_#`]', '', text)
 
-# --- YENİ NESİL SES FONKSİYONU ---
-async def text_to_speech_edge(text):
-    voice = "tr-TR-NesrinNeural" # En doğal Türkçe kadın sesi
+# --- SES OLUŞTURMA (DÖNGÜ DÜZELTMELİ) ---
+async def edge_tts_generate(text):
+    voice = "tr-TR-NesrinNeural"
     output_file = "output.mp3"
-    
-    # Metni temizle ki motor bozulmasın
-    cleaned_text = clean_text_for_speech(text)
-    
-    # Eğer metin boşsa işlem yapma
-    if not cleaned_text.strip():
-        return
-        
-    communicate = edge_tts.Communicate(cleaned_text, voice)
+    communicate = edge_tts.Communicate(text, voice)
     await communicate.save(output_file)
 
-# --- MODEL SEÇİMİ VE SOHBET ---
-@st.cache_resource
-def get_best_model():
-    # Model bulamazsa garanti olanı döndürür
-    url = f"https://generativelanguage.googleapis.com/v1beta/models?key={API_KEY}"
+def play_audio(text):
+    clean = clean_text(text)
+    if not clean.strip():
+        return
+        
     try:
-        response = requests.get(url)
-        data = response.json()
-        if "models" in data:
-            for model in data["models"]:
-                if "generateContent" in model["supportedGenerationMethods"]:
-                    return model["name"]
-        return "models/gemini-pro"
-    except:
-        return "models/gemini-pro"
+        # Mevcut bir döngü varsa onu kullan, yoksa yeni oluştur
+        # Streamlit bulut ortamında bu kısım kritiktir
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+        if loop.is_running():
+            # Eğer döngü zaten çalışıyorsa (Streamlit bazen yapar) görevi ekle
+            future = asyncio.ensure_future(edge_tts_generate(clean))
+            # Streamlit'te çalışan döngüyü beklemek zor olduğu için
+            # burada alternatif bir yöntem deniyoruz:
+            loop.run_until_complete(edge_tts_generate(clean))
+        else:
+            loop.run_until_complete(edge_tts_generate(clean))
+            
+        # Sesi Çal
+        if os.path.exists("output.mp3"):
+            with open("output.mp3", "rb") as f:
+                audio_bytes = f.read()
+            st.audio(audio_bytes, format="audio/mp3")
+            
+    except Exception as e:
+        # HATAYI GİZLEME, GÖSTER
+        st.error(f"⚠️ Ses Hatası: {str(e)}")
 
-def ask_google_auto(history, new_msg):
-    model_name = get_best_model()
-    url = f"https://generativelanguage.googleapis.com/v1beta/{model_name}:generateContent?key={API_KEY}"
+# --- GOOGLE MODEL ---
+@st.cache_resource
+def get_model_url():
+    # Model bulma işini basitleştirdik, direkt Pro kullanıyoruz hata riskini azaltmak için
+    return f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={API_KEY}"
+
+def ask_google(history, new_msg):
+    url = get_model_url()
     headers = {'Content-Type': 'application/json'}
     
-    contents = []
-    contents.append({"role": "user", "parts": [{"text": SYSTEM_PROMPT + "\n\nKonuşma Başlıyor:"}]})
-    
+    contents = [{"role": "user", "parts": [{"text": SYSTEM_PROMPT}]}]
     for msg in history:
         role = "user" if msg["role"] == "user" else "model"
         contents.append({"role": role, "parts": [{"text": msg["content"]}]})
-    
     contents.append({"role": "user", "parts": [{"text": new_msg}]})
     
-    payload = {"contents": contents}
-    
     try:
-        response = requests.post(url, headers=headers, json=payload)
+        response = requests.post(url, headers=headers, json={"contents": contents})
         if response.status_code == 200:
             return response.json()['candidates'][0]['content']['parts'][0]['text']
         else:
-            return f"Hata oldu balım: {response.text}"
+            return f"Hata: {response.text}"
     except Exception as e:
         return f"Bağlantı sorunu: {str(e)}"
 
@@ -109,36 +116,14 @@ def ask_google_auto(history, new_msg):
 if prompt := st.chat_input("Yaz balım..."):
     with st.chat_message("user"):
         st.markdown(prompt)
-    
     st.session_state.messages.append({"role": "user", "content": prompt})
     
-    with st.spinner('Nikosu düşünüyor...'):
-        bot_reply = ask_google_auto(st.session_state.messages[:-1], prompt)
+    with st.spinner('Yazıyor...'):
+        bot_reply = ask_google(st.session_state.messages[:-1], prompt)
     
     st.session_state.messages.append({"role": "model", "content": bot_reply})
     
     with st.chat_message("model"):
         st.markdown(bot_reply)
-        
-        # --- SES OLUŞTURMA ---
-        try:
-            # Önceki ses dosyasını temizle (çakışma olmasın)
-            if os.path.exists("output.mp3"):
-                os.remove("output.mp3")
-                
-            # Yeni sesi oluştur
-            asyncio.run(text_to_speech_edge(bot_reply))
-            
-            # Dosyayı oynat
-            if os.path.exists("output.mp3"):
-                audio_file = open("output.mp3", "rb")
-                audio_bytes = audio_file.read()
-                st.audio(audio_bytes, format="audio/mp3")
-                audio_file.close()
-            else:
-                st.warning("Ses dosyası oluşturulamadı (Sunucu yoğun olabilir).")
-                
-        except Exception as e:
-            # Kullanıcıya teknik hata gösterme, sadece logla
-            print(f"Ses hatası: {e}")
-            st.info("Ses şu an yüklenemedi ama metin yukarıda 👆")
+        # Ses fonksiyonunu çağır
+        play_audio(bot_reply)
