@@ -9,7 +9,6 @@ import datetime
 # --- AYARLAR ---
 if "GOOGLE_API_KEY" in st.secrets:
     API_KEY = st.secrets["GOOGLE_API_KEY"]
-    # Google Kütüphanesini Kuruyoruz
     genai.configure(api_key=API_KEY)
 else:
     st.error("⚠️ Google API Anahtarı bulunamadı!")
@@ -23,14 +22,12 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- TASARIM (SICAK & BİZDEN) ---
+# --- TASARIM ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap');
     html, body, [class*="css"] { font-family: 'Poppins', sans-serif; }
-    
     .stApp { background: linear-gradient(135deg, #fffbf0 0%, #fff0f0 100%); }
-    
     .menu-card {
         background-color: white;
         border-radius: 15px;
@@ -39,9 +36,7 @@ st.markdown("""
         box-shadow: 0 4px 10px rgba(0,0,0,0.05);
         border-left: 5px solid #c0392b;
     }
-    
     h1, h2, h3 { color: #c0392b; } 
-    
     .stButton>button {
         background-color: #c0392b;
         color: white;
@@ -57,15 +52,12 @@ st.markdown("""
 
 # --- TÜRK USULÜ TARİF HAVUZU ---
 TARIFLER = {
-    # Kahvaltılar
     "Klasik Türk Kahvaltısı": {"malz": ["2 Haşlanmış Yumurta", "Beyaz Peynir", "Zeytin", "Yeşillik"], "tarif": "Ekmek yok! Çatalla peynir zeytin keyfi."},
     "Menemen": {"malz": ["Domates", "Sivri Biber", "2 Yumurta", "Yağ"], "tarif": "Ekmek banmak yok, kaşıklıyoruz."},
     "Sucuklu Yumurta": {"malz": ["Kangal Sucuk (Az)", "2 Yumurta", "Tereyağı"], "tarif": "Sucukları kurutmadan pişir, yumurtayı kır."},
     "Peynirli Omlet": {"malz": ["2 Yumurta", "Ezine Peyniri", "Maydanoz"], "tarif": "Peyniri bol, ekmeği hiç yok."},
     "Çılbır (Ekmeksiz)": {"malz": ["2 Yumurta", "Sarımsaklı Yoğurt", "Pul Biberli Yağ"], "tarif": "Yumurtaları haşla, üzerine yoğurt dök."},
     "Sahanda Ispanaklı Yumurta": {"malz": ["Ispanak", "Soğan", "2 Yumurta"], "tarif": "Soğan ve ıspanağı kavur, yumurtayı kır."},
-
-    # Yemekler
     "Etli Kuru Fasulye": {"malz": ["Kuru Fasulye", "Kuşbaşı Et", "Soğan", "Salça"], "tarif": "Yanına pilav yasak! Yanına turşu ve ayran serbest."},
     "Etli Nohut Yemeği": {"malz": ["Nohut", "Et", "Soğan", "Salça"], "tarif": "Suyuna ekmek banmak yok. Kaşıkla ye."},
     "Yeşil Mercimek": {"malz": ["Yeşil Mercimek", "Soğan", "Salça"], "tarif": "İçine erişte koyma! Sade mercimek yemeği."},
@@ -81,7 +73,7 @@ TARIFLER = {
     "Mercimek Çorbası": {"malz": ["Kırmızı Mercimek", "Soğan", "Havuç"], "tarif": "Un kavurma, patates koyma. Bol limon."},
 }
 
-YAN_URUNLER = ["Bol Cacık", "Çoban Salata", "Ev Turşusu", "Söğüş Salatalık", "Ayran", "Gavurdağı Salata"]
+YAN_URUNLER = ["Bol Cacık", "Çoban Salata", "Ev Turşusu", "Söğüş Salatalık", "Ayran"]
 SABAH_SIVILARI = ["Türk Kahvesi ☕", "Demleme Çay 🍵", "Limonlu Su 💧", "Maden Suyu 🍋"]
 KAHVALTI_SECENEKLERI = ["Klasik Türk Kahvaltısı", "Menemen", "Sucuklu Yumurta", "Peynirli Omlet", "Çılbır", "Sahanda Ispanaklı Yumurta"]
 YEMEK_SECENEKLERI = ["Etli Kuru Fasulye", "Etli Nohut Yemeği", "Yeşil Mercimek", "Kıymalı Ispanak", "Zeytinyağlı Pırasa", "Karnıyarık (Kızartmasız)", "Türlü Yemeği", "Zeytinyağlı Taze Fasulye", "Kapuska (Kıymalı)", "İzmir Köfte (Patatessiz)", "Hamsi Buğulama", "Tavuk Sote"]
@@ -91,7 +83,6 @@ def create_turkish_menu():
     days = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"]
     menu = {}
     random.shuffle(YEMEK_SECENEKLERI)
-    
     for i, day in enumerate(days):
         if day in ["Cumartesi", "Pazar"]:
             sabah = random.choice(KAHVALTI_SECENEKLERI)
@@ -99,16 +90,12 @@ def create_turkish_menu():
         else:
             sabah = f"{random.choice(SABAH_SIVILARI)} (IF)"
             sabah_tip = "SIVI"
-            
         ogle = YEMEK_SECENEKLERI[i % len(YEMEK_SECENEKLERI)]
         aksam = YEMEK_SECENEKLERI[(i + 4) % len(YEMEK_SECENEKLERI)]
-        
         menu[day] = {
             "Sabah": sabah, "Sabah_Tip": sabah_tip,
-            "Ogle": f"{ogle} + {random.choice(YAN_URUNLER)}",
-            "Ogle_Ana": ogle,
-            "Aksam": f"{aksam} + {random.choice(YAN_URUNLER)}",
-            "Aksam_Ana": aksam
+            "Ogle": f"{ogle} + {random.choice(YAN_URUNLER)}", "Ogle_Ana": ogle,
+            "Aksam": f"{aksam} + {random.choice(YAN_URUNLER)}", "Aksam_Ana": aksam
         }
     return menu
 
@@ -124,6 +111,26 @@ def generate_shopping_list(menu):
         if meals['Sabah_Tip'] == "YEMEK" and meals['Sabah'] in TARIFLER:
              for item in TARIFLER[meals['Sabah']]['malz']: shopping_set.add(item)
     return sorted(list(shopping_set))
+
+# --- MODEL SEÇİCİ (HATA ÖNLEYİCİ) ---
+@st.cache_resource
+def get_best_model():
+    # Google'dan mevcut modelleri iste
+    try:
+        available_models = [m.name for m in genai.list_models()]
+        # Öncelik sırası: Flash -> Pro -> Herhangi biri
+        if 'models/gemini-1.5-flash' in available_models:
+            return 'models/gemini-1.5-flash'
+        elif 'models/gemini-pro' in available_models:
+            return 'models/gemini-pro'
+        else:
+            # Listede generateContent destekleyen ilk modeli al
+            for m in genai.list_models():
+                if 'generateContent' in m.supported_generation_methods:
+                    return m.name
+            return 'models/gemini-pro' # Son çare
+    except:
+        return 'models/gemini-pro' # Hata olursa varsayılan
 
 # --- SIDEBAR ---
 with st.sidebar:
@@ -145,11 +152,11 @@ with st.sidebar:
 
 # --- ANA EKRAN ---
 st.title("🥘 PCOS Nikosu: Tencere Yemekleri")
-st.caption("Bağlantı sorunu çözüldü! Nikosu hizmetinizde.")
+st.caption("Ekmeksiz, Pirinçsiz, Anne Yemekleri.")
 
 tab1, tab2, tab3, tab4 = st.tabs(["💬 Sohbet", "📅 Haftalık Menü", "🛒 Pazar Listesi", "🧘‍♀️ Spor"])
 
-# --- TAB 1: SOHBET (YENİLENMİŞ & GÜÇLENDİRİLMİŞ AI) ---
+# --- TAB 1: SOHBET ---
 with tab1:
     def play_audio_gtts(text):
         clean = re.sub(r'[*_#`]', '', text)
@@ -164,38 +171,34 @@ with tab1:
             st.audio(aud, format='audio/mp3')
         except: pass
 
-    # --- YENİ NESİL AI FONKSİYONU (Resmi Kütüphane) ---
     def ask_ai(history, message):
         try:
-            # En hızlı ve stabil model: gemini-1.5-flash
-            model = genai.GenerativeModel('gemini-1.5-flash')
+            # Otomatik bulunan modeli kullan
+            model_name = get_best_model()
+            model = genai.GenerativeModel(model_name)
             
-            # Sohbet geçmişini Google formatına çevir
             chat_history = []
-            # Sistem promptunu başa ekleyelim
             system_prompt = f"""
             Sen Nikosu'sun. Türk usulü beslenen bir yaşam koçusun.
-            Kullanıcı "tencere yemekleri" yiyor ama ekmek ve pilav yasak.
+            Kullanıcı tencere yemekleri yiyor (Ekmek/Pilav YASAK).
             Bugün: {today_name}. Menü: {today_menu}.
-            Çok samimi, abla/kardeş gibi konuş.
+            Samimi konuş.
             """
             chat_history.append({"role": "user", "parts": [system_prompt]})
-            chat_history.append({"role": "model", "parts": ["Tamam balım, anlaşıldı! Türk usulü ama sağlıklı devam ediyoruz."]})
+            chat_history.append({"role": "model", "parts": ["Anlaşıldı balım!"]})
             
             for msg in history:
-                if msg["role"] == "user":
-                    chat_history.append({"role": "user", "parts": [msg["content"]]})
-                else:
-                    chat_history.append({"role": "model", "parts": [msg["content"]]})
+                role = "user" if msg["role"] == "user" else "model"
+                chat_history.append({"role": role, "parts": [msg["content"]]})
             
             chat = model.start_chat(history=chat_history)
             response = chat.send_message(message)
             return response.text
         except Exception as e:
-            return f"Şu an Google biraz yoğun balım, ama ben buradayım! Hata: {str(e)}"
+            return f"Şu an bağlantıda sorun var balım. Hata: {str(e)}"
 
     if "messages" not in st.session_state:
-        st.session_state.messages = [{"role": "model", "content": "Bağlantımı güçlendirdim geldim balım! 💪 Bugün ne pişiriyoruz?"}]
+        st.session_state.messages = [{"role": "model", "content": "Selam balım! Tencere yemekleri hazır mı? Ekmek yok biliyorsun değil mi? 😉"}]
 
     for m in st.session_state.messages:
         with st.chat_message(m["role"], avatar="🥘" if m["role"] == "model" else None):
@@ -215,7 +218,7 @@ with tab1:
 
 # --- TAB 2: MENÜ ---
 with tab2:
-    st.header("📅 Türk Usulü Haftalık Plan")
+    st.header("📅 Haftalık Plan")
     for d in days:
         with st.expander(f"{d}", expanded=True if d == today_name else False):
             c1, c2, c3 = st.columns(3)
