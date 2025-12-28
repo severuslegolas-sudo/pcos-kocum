@@ -39,39 +39,49 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# --- 1. ADIM: TEMİZLİK (KOMUT SATIRI İÇİN) ---
+# --- 1. ADIM: OTOMATİK MODEL BULUCU (ÇÖZÜM BURADA) ---
+def get_working_model():
+    # Google'a "Elinizdeki modelleri ver" diyoruz
+    url = f"https://generativelanguage.googleapis.com/v1beta/models?key={API_KEY}"
+    try:
+        response = requests.get(url)
+        data = response.json()
+        
+        # Listeyi tarayıp 'generateContent' yapabilen ilk modeli alıyoruz
+        if "models" in data:
+            for model in data["models"]:
+                # Sadece sohbet edebilen modelleri seç
+                if "generateContent" in model.get("supportedGenerationMethods", []):
+                    return model["name"] # Örn: models/gemini-pro döner
+        
+        # Eğer liste boş gelirse en eski ve sağlam modeli dene
+        return "models/gemini-pro"
+    except:
+        return "models/gemini-pro"
+
+# --- 2. ADIM: SES OLUŞTURMA (GARANTİ YÖNTEM) ---
 def clean_for_shell(text):
     # Emojileri ve garip işaretleri sil
-    # Sadece harfler, rakamlar ve basit noktalama işaretleri kalsın
     clean = re.sub(r'[^a-zA-Z0-9çğıöşüÇĞİÖŞÜ .,!?\-\n]', ' ', text)
-    # Tırnak işaretlerini sil (Komutu bozmasın diye)
     clean = clean.replace('"', '').replace("'", "")
     return clean.strip()
 
-# --- 2. ADIM: BASİT SES OLUŞTURMA (ARKA KAPI YÖNTEMİ) ---
 def generate_audio_simple(text):
     clean_text = clean_for_shell(text)
-    
-    if not clean_text:
-        return
+    if not clean_text: return
         
-    # Eski dosyayı sil
     if os.path.exists("output.mp3"):
         os.remove("output.mp3")
     
-    # Python kodu yerine direkt sistem komutu kullanıyoruz (Daha garanti)
-    # edge-tts programını direkt çalıştırıyoruz
+    # edge-tts komutunu direkt çalıştır
     command = f'edge-tts --text "{clean_text}" --write-media output.mp3 --voice tr-TR-NesrinNeural'
     os.system(command)
 
-# --- 3. ADIM: GOOGLE BAĞLANTISI ---
-@st.cache_resource
-def get_best_model():
-    # Hata riskini sıfıra indirmek için direkt 1.5-Flash kullanıyoruz
-    return "models/gemini-1.5-flash"
-
+# --- 3. ADIM: SOHBET ---
 def ask_google(history, new_msg):
-    model_name = get_best_model()
+    # Otomatik bulunan modeli al
+    model_name = get_working_model()
+    
     url = f"https://generativelanguage.googleapis.com/v1beta/{model_name}:generateContent?key={API_KEY}"
     headers = {'Content-Type': 'application/json'}
     
@@ -86,7 +96,7 @@ def ask_google(history, new_msg):
         if response.status_code == 200:
             return response.json()['candidates'][0]['content']['parts'][0]['text']
         else:
-            return f"Hata oldu balım: {response.text}"
+            return f"Hata oldu balım ({response.status_code}): {response.text}"
     except Exception as e:
         return f"Bağlantı sorunu: {str(e)}"
 
@@ -104,7 +114,7 @@ if prompt := st.chat_input("Yaz balım..."):
     with st.chat_message("model"):
         st.markdown(bot_reply)
         
-        # Sesi oluştur ve çal
+        # Hata yoksa sesi çal
         if "Hata" not in bot_reply:
             generate_audio_simple(bot_reply)
             
