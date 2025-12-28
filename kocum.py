@@ -16,115 +16,150 @@ else:
 # --- SAYFA AYARLARI ---
 st.set_page_config(
     page_title="PCOS Nikosu",
-    page_icon="🌿",
+    page_icon="🏠",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# --- TASARIM (EGE & PINTEREST) ---
+# --- TASARIM (SICAK EV TEMASI) ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap');
     html, body, [class*="css"] { font-family: 'Poppins', sans-serif; }
     
-    .stApp { background: linear-gradient(135deg, #f0fdf4 0%, #eff6ff 100%); }
+    /* Arka Plan: Sıcak, samimi şeftali/krem tonları */
+    .stApp { background: linear-gradient(135deg, #fff1eb 0%, #ace0f9 100%); }
     
-    /* Expander (Tarif Kutuları) Tasarımı */
-    .streamlit-expanderHeader {
-        background-color: white;
-        border-radius: 10px;
-        border: 1px solid #e5e7eb;
-        color: #065f46;
-        font-weight: 600;
+    .stChatMessage {
+        background-color: rgba(255, 255, 255, 0.8);
+        border-radius: 15px !important;
+        border: 1px solid #e0e0e0;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
     }
     
-    .stCheckbox { background-color: white; padding: 10px; border-radius: 10px; margin-bottom: 5px; }
+    .menu-card {
+        background-color: white;
+        border-radius: 15px;
+        padding: 20px;
+        margin-bottom: 15px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        border: 1px solid #f0f0f0;
+    }
     
-    h1, h2, h3 { color: #047857; }
+    h1, h2, h3 { color: #d35400; } /* Kiremit Rengi */
+    
+    .stButton>button {
+        background-color: #e67e22;
+        color: white;
+        border-radius: 20px;
+        border: none;
+    }
+    .stButton>button:hover { background-color: #d35400; }
+    
+    .streamlit-expanderHeader { font-weight: 600; color: #d35400; }
+    
     #MainMenu, footer, header {visibility: hidden;}
 </style>
 """, unsafe_allow_html=True)
 
-# --- YEMEK VE TARİF VERİTABANI (DEV LİSTE) ---
-# Format: "Yemek Adı": {"malz": [list], "tarif": "string"}
-
+# --- EKONOMİK & EV TİPİ TARİF HAVUZU ---
 TARIFLER = {
-    # --- SABAH (Hafta Sonu) ---
-    "Ege Otlu Omlet": {
-        "malz": ["2 Yumurta", "Ispanak/Isırgan Otu", "1 tatlı kaşığı Zeytinyağı", "Beyaz Peynir"],
-        "tarif": "Otları yıkayıp zeytinyağında hafifçe çevir. Yumurtaları çırpıp üzerine dök. Peyniri ekle, kapağını kapatıp pişir."
+    # --- SABAH (Hafta Sonu - Ekonomik) ---
+    "Patatesli Yumurta": {
+        "malz": ["2 Orta Boy Patates", "2 Yumurta", "Az Sıvı Yağ", "Pul Biber", "Maydanoz"],
+        "tarif": "Patatesleri küp küp doğra, az yağda kapağı kapalı yumuşat (kızartma değil). Üzerine yumurtaları kır."
     },
-    "Lor Peynirli Roka Salatası": {
-        "malz": ["Lor Peyniri", "Roka", "Çeri Domates", "Ceviz", "Zeytinyağı", "1 Haşlanmış Yumurta"],
-        "tarif": "Tüm yeşillikleri doğra. Üzerine lor, ceviz ve zeytinyağını ekle. Yumurtayı dilimleyip servis et."
+    "Menemen": {
+        "malz": ["2 Domates", "3 Yeşil Biber", "2 Yumurta", "Az Sıvı Yağ"],
+        "tarif": "Biberleri öldür, domatesi ekle suyunu çeksin. Yumurtaları kır, çok karıştırma."
     },
-    "Bergama Tulumu & Ceviz": {
-        "malz": ["Bergama Tulum Peyniri", "2 tam Ceviz", "Salatalık", "Bol Yeşillik", "1 Dilim Ekmek"],
-        "tarif": "Klasik Ege kahvaltısı tabağı hazırla. Cevizleri peynirle beraber tüket."
+    "Peynirli Maydanozlu Omlet": {
+        "malz": ["2 Yumurta", "Bir parça Beyaz Peynir/Lor", "Yarım demet Maydanoz"],
+        "tarif": "Yumurtaları çırp, içine ezilmiş peynir ve kıyılmış maydanozu ekle. Tavada pişir."
     },
-    "Menemen (Ekmeksiz)": {
-        "malz": ["2 Domates", "2 Biber", "2 Yumurta", "Zeytinyağı"],
-        "tarif": "Biberleri ve domatesleri zeytinyağında öldür. Yumurtaları kır ama çok karıştırma."
+    "Simit Tadında Yumurta": {
+        "malz": ["1 Yumurta", "Susam", "Kaşar Peyniri (varsa)", "Tereyağı"],
+        "tarif": "Tavaya susamları dök biraz kavur. Yumurtayı üzerine kır. Varsa kaşar ekle."
     },
-
-    # --- ÖĞLE (Hafif Ege) ---
-    "Zeytinyağlı Kabak Sıyırma": {
-        "malz": ["2 Kabak", "1 Soğan", "Yarım Limon", "Dereotu", "Pirinç (1 kaşık)"],
-        "tarif": "Kabakları soyacakla şerit şerit doğra. Soğanı kavur, kabakları ve pirinci ekle. Kısık ateşte kendi suyuyla pişir. Limon ve dereotu ekle."
-    },
-    "Deniz Börülcesi & Tavuk": {
-        "malz": ["Deniz Börülcesi", "Sarımsak", "Zeytinyağı", "Limon", "Izgara Tavuk Göğsü"],
-        "tarif": "Börülceleri haşla ve kılçıklarını ayıkla. Sarımsaklı limonlu sos dök. Yanına tavuğu ızgara yap."
-    },
-    "Girit Kabağı Dolması": {
-        "malz": ["2 Girit Kabağı (Top)", "Lor Peyniri", "Dereotu", "Zeytinyağı"],
-        "tarif": "Kabakların içini oy, hafif haşla. Lor, dereotu ve zeytinyağını karıştırıp içine doldur. Fırında 15 dk pişir."
-    },
-    "Semizotu Salatası": {
-        "malz": ["Semizotu", "Süzme Yoğurt", "Sarımsak", "Ceviz", "Zeytinyağı"],
-        "tarif": "Semizotunu yıka, doğramadan yapraklarını ayır. Sarımsaklı yoğurtla karıştır, üzerine ceviz serp."
-    },
-    "Enginar Kalbi": {
-        "malz": ["3 Enginar Çanağı", "Bezelye/Havuç garnitür", "Zeytinyağı", "Portakal Suyu"],
-        "tarif": "Enginarları tencereye diz. Üzerine garnitürü koy. Zeytinyağı ve portakal suyunu gezdirip yumuşayana kadar pişir."
+    "Haşlanmış Yumurta & Söğüş": {
+        "malz": ["2 Yumurta", "Salatalık", "Domates", "Biber", "Zeytin"],
+        "tarif": "Klasik, en sağlıklı kahvaltı. Yumurtaları kayısı kıvamında haşla."
     },
 
-    # --- AKŞAM (Protein & Zayıflama) ---
-    "Fırın Levrek": {
-        "malz": ["1 Levrek", "Defne Yaprağı", "Limon", "Roka"],
-        "tarif": "Balığın içine defne yaprağı ve limon koy. Yağlı kağıtta fırına ver (200 derece 25 dk). Yanına bol roka."
+    # --- ÖĞLE (Bakliyat & Sebze - Ekonomik) ---
+    "Yeşil Mercimek Yemeği": {
+        "malz": ["1 su bardağı Yeşil Mercimek", "1 Soğan", "1 Havuç", "Salça", "Erişte (az)"],
+        "tarif": "Soğanı salçayla kavur. Mercimeği ve küp havucu ekle. Suyunu koy pişir. İnmeye yakın az erişte at."
     },
-    "Şevketi Bostan": {
-        "malz": ["Şevketi Bostan Otu", "1 Soğan", "Kuzu eti veya Tavuk", "Limon", "Yumurta sarısı (Terbiye)"],
-        "tarif": "Etleri soğanla kavur. Otları ekle, su koy pişir. İnmeye yakın limon ve yumurta sarısı ile terbiye yap."
+    "Nohut Yemeği": {
+        "malz": ["Haşlanmış Nohut", "1 Soğan", "Salça", "Kimyon"],
+        "tarif": "Soğanı kavur, salçayı ekle. Nohutları ve sıcak suyu koy. Kimyon ekle (gaz yapmasın diye). Özleşene kadar pişir."
     },
-    "Pazı Kavurma": {
-        "malz": ["1 Demet Pazı", "1 Soğan", "Pul Biber", "2 Yumurta"],
-        "tarif": "Soğanı kavur, doğranmış pazıları ekle suyunu çeksin. Ortasını açıp yumurtaları kır."
+    "Kısır (Bol Yeşillikli)": {
+        "malz": ["İnce Bulgur", "Salça", "Maydanoz", "Marul", "Limon", "Nar Ekşisi"],
+        "tarif": "Bulguru sıcak suyla şişir. Salçayı yağda kavurup dök (çiğ kalmasın). Bol yeşillik ve limonla harmanla."
     },
-    "Zeytinyağlı Bamya": {
-        "malz": ["Bamya", "Domates", "Limon Tuzu/Suyu", "Zeytinyağı"],
-        "tarif": "Bamyaları ayıkla. Domates sosunda, bol limonla (sünmemesi için) kısık ateşte pişir."
+    "Yumurtalı Ispanak": {
+        "malz": ["Ispanak", "1 Soğan", "2 Yumurta", "Salça"],
+        "tarif": "Soğanı kavur, ıspanakları ekle sönene kadar pişir. Göz göz açıp yumurtaları kır."
     },
-    "Fırın Mücver": {
-        "malz": ["2 Kabak", "1 Yumurta", "Dereotu", "Tam Buğday Unu (1 kaşık)", "Beyaz Peynir"],
-        "tarif": "Kabağı rendele suyunu sık. Malzemeleri karıştır. Yağlı kağıda kaşıkla dök. Fırında kızarana kadar pişir."
+    "Mücver (Fırında)": {
+        "malz": ["2 Kabak", "1 Havuç", "2 Yumurta", "Un", "Dereotu", "Peynir"],
+        "tarif": "Sebzeleri rendele suyunu sık. Diğer malzemelerle karıştır. Yağlı kağıda dök, fırına ver (Yağ çekmez, ekonomiktir)."
+    },
+    "Bulgur Pilavı & Yoğurt": {
+        "malz": ["Pilavlık Bulgur", "Salça/Domates", "Biber", "Yoğurt"],
+        "tarif": "Soğan ve biberi kavur. Bulguru ekle, suyunu ver. Yanına ev yoğurdu ile servis et."
+    },
+    "Fırın Makarna (Sebzeli)": {
+        "malz": ["Yarım paket Makarna", "Peynir", "Süt", "Yumurta", "Varsa Ispanak/Pırasa"],
+        "tarif": "Makarnayı haşla. Süt, yumurta, peynir ve elindeki sebzeyi karıştırıp fırına ver."
+    },
+
+    # --- AKŞAM (Hafif & Ev Usulü) ---
+    "Fırın Tavuk & Patates": {
+        "malz": ["Tavuk Baget/Göğüs", "2 Patates", "Salça", "Kekik"],
+        "tarif": "Salçalı su ve baharatla sos hazırla. Tavuk ve patatesleri sosa bulayıp fırın poşetine veya tepsiye at."
+    },
+    "Zeytinyağlı Pırasa": {
+        "malz": ["Pırasa", "2 Havuç", "Pirinç (az)", "Limon", "Zeytinyağı"],
+        "tarif": "Havuçları ve pırasaları doğra. Yağda çevir. Az pirinç ve limonlu su ekleyip pişir."
+    },
+    "Kuru Fasulye (Etsiz)": {
+        "malz": ["Kuru Fasulye", "1 Soğan", "Salça", "Pul Biber"],
+        "tarif": "Klasik usul. Soğanı salçayı kavur, akşamdan ıslattığın fasulyeyi ekle. Kısık ateşte helmelenene kadar pişir."
+    },
+    "Tavuk Sote": {
+        "malz": ["Tavuk Göğsü", "Biber", "Domates", "Soğan", "Baharat"],
+        "tarif": "Tavukları kuşbaşı doğra, suyunu çekene kadar kavur. Sebzeleri ekle sotele."
+    },
+    "Karnabahar Kızartma (Fırında)": {
+        "malz": ["Karnabahar", "Yoğurt", "Sarımsak", "Az Zeytinyağı", "Baharat"],
+        "tarif": "Karnabaharları çiçeklerine ayır. Yağ ve baharatla harmanla fırına at. Çıkınca sarımsaklı yoğurt dök."
+    },
+    "Mercimek Çorbası & Salata": {
+        "malz": ["Kırmızı Mercimek", "Patates", "Havuç", "Soğan"],
+        "tarif": "Hepsini tencereye at haşla, blenderdan geçir. Yanına bol salata ile doyurucu bir öğün."
+    },
+    "Türlü Yemeği": {
+        "malz": ["Patlıcan", "Kabak", "Patates", "Biber", "Domates", "Sarımsak"],
+        "tarif": "Evde kalan sebzeleri küp küp doğra. Salçalı suyla tencerede veya güveçte pişir."
     }
 }
 
-# Veritabanında olmayanlar için yedek içerik
-GENERIC_RECIPE = {"malz": ["Mevsim sebzeleri", "Protein kaynağı", "Zeytinyağı"], "tarif": "Sağlıklı pişirme yöntemleriyle hazırla balım."}
-
-# Listeler (Veritabanındaki anahtarları kullanmalı)
-SABAH_SIVILARI = ["Filtre Kahve ☕", "Adaçayı 🌿", "Sirkeli Su 💧", "Maydanoz Suyu 🍋"]
-KAHVALTI_SECENEKLERI = ["Ege Otlu Omlet", "Lor Peynirli Roka Salatası", "Bergama Tulumu & Ceviz", "Menemen (Ekmeksiz)"]
-OGLE_SECENEKLERI = ["Zeytinyağlı Kabak Sıyırma", "Deniz Börülcesi & Tavuk", "Girit Kabağı Dolması", "Semizotu Salatası", "Enginar Kalbi"]
-AKSAM_SECENEKLERI = ["Fırın Levrek", "Şevketi Bostan", "Pazı Kavurma", "Zeytinyağlı Bamya", "Fırın Mücver"]
+# --- LİSTELER (Çeşitlilik İçin Genişletildi) ---
+SABAH_SIVILARI = ["Sade Kahve ☕", "Limonlu Çay 🍵", "Sirkeli Su 💧", "Ihlamur 🌿", "Tarçınlı Süt 🥛"]
+KAHVALTI_SECENEKLERI = ["Patatesli Yumurta", "Menemen", "Peynirli Maydanozlu Omlet", "Simit Tadında Yumurta", "Haşlanmış Yumurta & Söğüş"]
+OGLE_SECENEKLERI = ["Yeşil Mercimek Yemeği", "Nohut Yemeği", "Kısır (Bol Yeşillikli)", "Yumurtalı Ispanak", "Mücver (Fırında)", "Bulgur Pilavı & Yoğurt", "Fırın Makarna (Sebzeli)"]
+AKSAM_SECENEKLERI = ["Fırın Tavuk & Patates", "Zeytinyağlı Pırasa", "Kuru Fasulye (Etsiz)", "Tavuk Sote", "Karnabahar Kızartma (Fırında)", "Mercimek Çorbası & Salata", "Türlü Yemeği"]
 
 # --- FONKSİYONLAR ---
 def create_weekly_menu():
     days = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"]
     menu = {}
+    
+    # Random havuzunu karıştır (Başa sarmaması için)
+    # Her gün için farklı seçim yapmaya zorla
     for day in days:
         if day in ["Cumartesi", "Pazar"]:
             sabah = random.choice(KAHVALTI_SECENEKLERI)
@@ -143,20 +178,15 @@ def create_weekly_menu():
 def generate_shopping_list(menu):
     shopping_set = set()
     for day, meals in menu.items():
-        # Öğle yemeği malzemeleri
         if meals['Ogle'] in TARIFLER:
-            for item in TARIFLER[meals['Ogle']]['malz']:
-                shopping_set.add(item)
-        # Akşam yemeği malzemeleri
+            for item in TARIFLER[meals['Ogle']]['malz']: shopping_set.add(item)
         if meals['Aksam'] in TARIFLER:
-            for item in TARIFLER[meals['Aksam']]['malz']:
-                shopping_set.add(item)
-        # Kahvaltı (Hafta sonuysa)
+            for item in TARIFLER[meals['Aksam']]['malz']: shopping_set.add(item)
         if meals['Sabah_Tip'] == "YEMEK" and meals['Sabah'] in TARIFLER:
-             for item in TARIFLER[meals['Sabah']]['malz']:
-                shopping_set.add(item)
+             for item in TARIFLER[meals['Sabah']]['malz']: shopping_set.add(item)
     return sorted(list(shopping_set))
 
+# --- HAFIZA KONTROLÜ (BAŞA SARMAYI ENGELLEME) ---
 if "weekly_menu" not in st.session_state:
     st.session_state.weekly_menu = create_weekly_menu()
 
@@ -170,24 +200,22 @@ curr_day, curr_menu = get_todays_menu()
 
 # --- YAN MENÜ ---
 with st.sidebar:
-    st.title(f"🌿 {curr_day}")
-    st.markdown("### Bugün Ne Yiyoruz?")
-    
+    st.title(f"🏠 {curr_day}")
+    st.markdown("### Ev Usulü Menü")
     st.info(f"🍳 **Sabah:** {curr_menu['Sabah']}")
-    st.success(f"🥗 **Öğle:** {curr_menu['Ogle']}")
+    st.success(f"🍲 **Öğle:** {curr_menu['Ogle']}")
     st.warning(f"🍽️ **Akşam:** {curr_menu['Aksam']}")
-    
     st.markdown("---")
-    st.write("💧 *Hedef: 2.5 Litre Su*")
+    st.write("💧 *Su içmeyi unutma balım!*")
 
 # --- ANA EKRAN ---
 col_logo, col_text = st.columns([1, 6])
 with col_text:
-    st.markdown("<h1 style='margin-bottom:0; color:#065f46;'>PCOS Nikosu</h1>", unsafe_allow_html=True)
-    st.caption("Ege Mutfağı, Sağlıklı Tarifler & Akıllı Alışveriş")
+    st.markdown("<h1 style='color:#e67e22;'>PCOS Nikosu</h1>", unsafe_allow_html=True)
+    st.caption("Ekonomik, Pratik ve Bizden Tarifler")
 
 # --- TABLAR ---
-tab_chat, tab_menu, tab_shop, tab_yoga = st.tabs(["💬 Sohbet", "📖 Tarifli Menü", "🛒 Alışveriş Listesi", "🧘‍♀️ Spor"])
+tab_chat, tab_menu, tab_shop, tab_yoga = st.tabs(["💬 Sohbet", "🍲 Haftalık Menü", "🛒 Pazar Listesi", "🧘‍♀️ Spor"])
 
 # --- TAB 1: SOHBET ---
 with tab_chat:
@@ -223,8 +251,8 @@ with tab_chat:
             mdl = get_model_name()
             url = f"https://generativelanguage.googleapis.com/v1beta/{mdl}:generateContent?key={API_KEY}"
             prompt = f"""
-            Sen Nikosu'sun. En yakın kız arkadaş gibi samimi konuş.
-            Konumuz: Kilo verme, Ege Mutfağı, PCOS.
+            Sen Nikosu'sun. Kullanıcı ekonomik ve pratik ev yemekleri istiyor.
+            Samimi bir ev arkadaşı gibi konuş.
             Bugün: {curr_day}. Menü: {curr_menu}.
             """
             con = [{"role": "user", "parts": [{"text": prompt}]}]
@@ -234,14 +262,14 @@ with tab_chat:
             con.append({"role": "user", "parts": [{"text": msg}]})
             res = requests.post(url, headers={'Content-Type':'application/json'}, json={"contents": con})
             if res.status_code == 200: return res.json()['candidates'][0]['content']['parts'][0]['text']
-            return "Bağlantıda sorun var balım."
+            return "Bağlantı koptu balım."
         except: return "İnternetini kontrol et kuzum."
 
     if "messages" not in st.session_state:
-        st.session_state.messages = [{"role": "model", "content": "Selam balım! Tariflerini ve alışveriş listeni hazırladım. Bakalım mı? 🍋"}]
+        st.session_state.messages = [{"role": "model", "content": "Selam balım! Dolaptakilerle harikalar yaratmaya hazır mısın? 🏠"}]
 
     for m in st.session_state.messages:
-        with st.chat_message(m["role"], avatar="🌿" if m["role"] == "model" else None):
+        with st.chat_message(m["role"], avatar="👩‍🍳" if m["role"] == "model" else None):
             st.write(m["content"])
 
     if user_in := st.chat_input("Nikosu'ya yaz..."):
@@ -250,15 +278,15 @@ with tab_chat:
         with st.spinner("..."):
             ai_reply = ask_ai(st.session_state.messages[:-1], user_in)
         st.session_state.messages.append({"role": "model", "content": ai_reply})
-        with st.chat_message("model", avatar="🌿"):
+        with st.chat_message("model", avatar="👩‍🍳"):
             st.write(ai_reply)
             if "sorun" not in ai_reply: play_audio_gtts(ai_reply)
 
-# --- TAB 2: TARİFLİ MENÜ ---
+# --- TAB 2: MENÜ ---
 with tab_menu:
     col_btn, _ = st.columns([1, 4])
     with col_btn:
-        if st.button("🔄 Menüyü Yenile"):
+        if st.button("🔄 Yeni Liste Yap"):
             st.session_state.weekly_menu = create_weekly_menu()
             st.rerun()
 
@@ -267,60 +295,41 @@ with tab_menu:
     
     for d in days:
         is_weekend = d in ["Cumartesi", "Pazar"]
-        color = "#d97706" if is_weekend else "#059669"
+        color = "#d35400" if is_weekend else "#27ae60"
         
-        st.markdown(f"<h3 style='color:{color}; border-bottom:1px solid #ddd; padding-bottom:5px;'>{d}</h3>", unsafe_allow_html=True)
+        st.markdown(f"<h3 style='color:{color}; border-bottom:1px solid #eee;'>{d}</h3>", unsafe_allow_html=True)
         
         # Sabah
-        sabah_yemek = menu[d]['Sabah']
-        if menu[d]['Sabah_Tip'] == "YEMEK" and sabah_yemek in TARIFLER:
-            with st.expander(f"🍳 Sabah: {sabah_yemek}"):
-                st.write(f"**Malzemeler:** {', '.join(TARIFLER[sabah_yemek]['malz'])}")
-                st.info(f"**Yapılışı:** {TARIFLER[sabah_yemek]['tarif']}")
+        sabah = menu[d]['Sabah']
+        if menu[d]['Sabah_Tip'] == "YEMEK" and sabah in TARIFLER:
+            with st.expander(f"🍳 Sabah: {sabah}"):
+                st.write(f"**Malzemeler:** {', '.join(TARIFLER[sabah]['malz'])}")
+                st.info(f"**Yapılışı:** {TARIFLER[sabah]['tarif']}")
         else:
-            st.write(f"☕ **Sabah:** {sabah_yemek}")
+            st.write(f"☕ **Sabah:** {sabah}")
 
-        # Öğle
-        ogle_yemek = menu[d]['Ogle']
-        with st.expander(f"🥗 Öğle: {ogle_yemek}"):
-            if ogle_yemek in TARIFLER:
-                st.write(f"**Malzemeler:** {', '.join(TARIFLER[ogle_yemek]['malz'])}")
-                st.info(f"**Yapılışı:** {TARIFLER[ogle_yemek]['tarif']}")
-            else:
-                st.write("Tarif yükleniyor...")
-
-        # Akşam
-        aksam_yemek = menu[d]['Aksam']
-        with st.expander(f"🍽️ Akşam: {aksam_yemek}"):
-            if aksam_yemek in TARIFLER:
-                st.write(f"**Malzemeler:** {', '.join(TARIFLER[aksam_yemek]['malz'])}")
-                st.info(f"**Yapılışı:** {TARIFLER[aksam_yemek]['tarif']}")
-            else:
-                st.write("Tarif yükleniyor...")
+        # Öğle & Akşam (Expander içinde)
+        for ogun, icon in [("Ogle", "🍲"), ("Aksam", "🍽️")]:
+            yemek = menu[d][ogun]
+            with st.expander(f"{icon} {ogun}: {yemek}"):
+                if yemek in TARIFLER:
+                    st.write(f"**Malzemeler:** {', '.join(TARIFLER[yemek]['malz'])}")
+                    st.info(f"**Yapılışı:** {TARIFLER[yemek]['tarif']}")
         st.markdown("<br>", unsafe_allow_html=True)
 
-# --- TAB 3: ALIŞVERİŞ LİSTESİ ---
+# --- TAB 3: PAZAR LİSTESİ ---
 with tab_shop:
-    st.header("🛒 Haftalık Alışveriş Listen")
-    st.write("Bu haftaki menüne göre otomatik oluşturuldu. Aldıklarını işaretle!")
-    
+    st.header("🛒 Pazar & Market Listesi")
+    st.caption("Evde olanları işaretle, eksikleri al balım.")
     shopping_list = generate_shopping_list(st.session_state.weekly_menu)
     
-    # 3 Kolonlu Liste
-    sc1, sc2, sc3 = st.columns(3)
+    c1, c2, c3 = st.columns(3)
     for i, item in enumerate(shopping_list):
-        if i % 3 == 0: sc1.checkbox(item, key=f"shop_{i}")
-        elif i % 3 == 1: sc2.checkbox(item, key=f"shop_{i}")
-        else: sc3.checkbox(item, key=f"shop_{i}")
-        
-    st.markdown("---")
-    st.caption("💡 *İpucu: Markete gitmeden önce mutfağındakileri kontrol etmeyi unutma balım!*")
+        if i % 3 == 0: c1.checkbox(item, key=f"s_{i}")
+        elif i % 3 == 1: c2.checkbox(item, key=f"s_{i}")
+        else: c3.checkbox(item, key=f"s_{i}")
 
 # --- TAB 4: SPOR ---
 with tab_yoga:
-    st.markdown("### 🧘‍♀️ Ege Havasında Spor")
-    c1, c2 = st.columns(2)
-    with c1:
-        st.video("https://www.youtube.com/watch?v=inpok4MKVLM")
-    with c2:
-        st.video("https://www.youtube.com/watch?v=enYITYwvPAQ")
+    st.markdown("### 🏠 Evde Spor Keyfi")
+    st.video("https://www.youtube.com/watch?v=enYITYwvPAQ")
