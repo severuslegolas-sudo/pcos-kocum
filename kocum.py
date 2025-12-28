@@ -1,21 +1,17 @@
 import streamlit as st
 import requests
+from gtts import gTTS
+import io
 import re
 
 # --- AYARLAR ---
-# 1. Google Şifresini Kasadan Al (Bu çalışıyor, dokunma)
 if "GOOGLE_API_KEY" in st.secrets:
-    GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
+    API_KEY = st.secrets["GOOGLE_API_KEY"]
 else:
-    st.error("Google Anahtarı Yok!")
+    st.error("Google Anahtarı Yok! Lütfen Secrets ayarlarını kontrol et.")
     st.stop()
 
-# 2. ElevenLabs Şifresini DİREKT BURAYA YAZIYORUZ
-# Lütfen aşağıdaki tırnakların içine şifreni yapıştır.
-# Örnek: ELEVEN_API_KEY = "sk_3458349583..."
-ELEVEN_API_KEY = "6019f1a10c093505da3251b94e987bcdc8c5ae3a15b57fff4cec1a2524301a01"
-
-# --- SAYFA ---
+# --- SAYFA AYARLARI ---
 st.set_page_config(page_title="PCOS Nikosu", page_icon="🌸", layout="centered", initial_sidebar_state="collapsed")
 st.title("🌸 PCOS Nikosu")
 
@@ -27,7 +23,7 @@ with st.expander("📋 GÜNLÜK MENÜM", expanded=False):
     * **Gece:** Aslan pençesi 🌿
     """)
 
-# --- KİMLİK ---
+# --- NİKOSU KİMLİĞİ ---
 SYSTEM_PROMPT = """
 Sen 'PCOS Nikosu'sun. En yakın kız arkadaş gibi samimi konuş.
 Hitaplar: Balım, Kuzum, Çiçeğim.
@@ -43,55 +39,32 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# --- SES (ELEVENLABS - DİREKT VE MANUEL) ---
-def play_elevenlabs_audio(text):
-    # Temizlik
-    clean = re.sub(r'[*_#`]', '', text)
+# --- SES (GARANTİLİ gTTS) ---
+def play_audio_gtts(text):
+    # Emojileri temizle ki Google okurken saçmalamasın
+    clean = re.sub(r'[*_#`]', '', text) 
     clean = re.sub(r'http\S+', '', clean)
     clean = re.sub(r'[^a-zA-Z0-9çğıöşüÇĞİÖŞÜ .,!?\-\n]', '', clean).strip()
     
     if not clean: return
 
-    # Rachel Ses ID
-    VOICE_ID = "21m00Tcm4TlvDq8ikWAM" 
-    
-    url = f"https://api.elevenlabs.io/v1/text-to-speech/{VOICE_ID}"
-    
-    headers = {
-        "Accept": "audio/mpeg",
-        "Content-Type": "application/json",
-        "xi-api-key": ELEVEN_API_KEY # Şifreyi buradan alacak
-    }
-    
-    data = {
-        "text": clean,
-        "model_id": "eleven_multilingual_v2",
-        "voice_settings": {
-            "stability": 0.5,
-            "similarity_boost": 0.75
-        }
-    }
-
     try:
-        # Şifre kontrolü için log (Sadece senin göreceğin log)
-        print(f"Denenen Şifre İlk 5 Harf: {ELEVEN_API_KEY[:5]}...")
+        # Sesi hafızada oluştur
+        tts = gTTS(text=clean, lang='tr')
+        audio_bytes = io.BytesIO()
+        tts.write_to_fp(audio_bytes)
+        audio_bytes.seek(0)
         
-        response = requests.post(url, json=data, headers=headers)
-        
-        if response.status_code == 200:
-            st.audio(response.content, format='audio/mp3')
-        else:
-            # Hata detayını gösterelim
-            st.warning(f"Ses oluşturulamadı. Hata Kodu: {response.status_code}")
-            st.code(response.text) # Hatanın tam metnini görelim
-            
+        # Oynat
+        st.audio(audio_bytes, format='audio/mp3')
     except Exception as e:
-        st.warning(f"Bağlantı hatası: {e}")
+        st.warning(f"Ses hatası: {e}")
 
-# --- GOOGLE MODEL ---
-def get_model():
+# --- MODEL BULUCU ---
+def get_working_model():
+    # Otomatik olarak çalışan modeli bulur
     try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models?key={GOOGLE_API_KEY}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models?key={API_KEY}"
         data = requests.get(url).json()
         for m in data.get("models", []):
             if "generateContent" in m.get("supportedGenerationMethods", []):
@@ -100,9 +73,10 @@ def get_model():
     except:
         return "models/gemini-pro"
 
+# --- SOHBET ---
 def ask_google(history, new_msg):
-    model = get_model()
-    url = f"https://generativelanguage.googleapis.com/v1beta/{model}:generateContent?key={GOOGLE_API_KEY}"
+    model = get_working_model()
+    url = f"https://generativelanguage.googleapis.com/v1beta/{model}:generateContent?key={API_KEY}"
     headers = {'Content-Type': 'application/json'}
     
     contents = [{"role": "user", "parts": [{"text": SYSTEM_PROMPT}]}]
@@ -133,5 +107,4 @@ if prompt := st.chat_input("Yaz balım..."):
     with st.chat_message("model"):
         st.markdown(reply)
         if "Hata" not in reply:
-            play_elevenlabs_audio(reply)
-
+            play_audio_gtts(reply)
