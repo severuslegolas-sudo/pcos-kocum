@@ -41,32 +41,22 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# --- 1. ADIM: OTOMATİK MODEL BULUCU (ÇÖZÜM BURADA) ---
-@st.cache_resource
-def get_best_model():
-    # Google'a "Elinizdeki modelleri ver" diyoruz
-    url = f"https://generativelanguage.googleapis.com/v1beta/models?key={API_KEY}"
-    try:
-        response = requests.get(url)
-        data = response.json()
-        
-        # Listeyi tarayıp 'generateContent' yapabilen ilk modeli alıyoruz
-        if "models" in data:
-            for model in data["models"]:
-                if "generateContent" in model["supportedGenerationMethods"]:
-                    return model["name"] # Örn: models/gemini-1.5-flash döner
-        
-        # Liste boşsa varsayılanı döndür
-        return "models/gemini-1.5-flash"
-    except:
-        # Bağlantı hatası olursa varsayılanı döndür
-        return "models/gemini-1.5-flash"
+# --- 1. ADIM: GELİŞMİŞ METİN TEMİZLİĞİ (EMOJİ SAVAR) ---
+def clean_text_for_speech(text):
+    # 1. Yıldız, kare, alt tire gibi markdown işaretlerini sil
+    text = re.sub(r'[*_#`]', '', text)
+    
+    # 2. Linkleri sil (http ile başlayan her şey)
+    text = re.sub(r'http\S+', '', text)
+    
+    # 3. Sadece Harfleri, Rakamları ve Noktalama İşaretlerini Tut
+    # (Bu işlem emojileri yok eder, çünkü emojiler harf değildir)
+    # Türkçeye özgü karakterleri koruyoruz (çğıöşüÇĞİÖŞÜ)
+    cleaned = re.sub(r'[^a-zA-Z0-9çğıöşüÇĞİÖŞÜ .,!?\-\n]', '', text)
+    
+    return cleaned.strip()
 
 # --- 2. ADIM: SES OLUŞTURMA ---
-def clean_text(text):
-    # Okunması zor işaretleri temizle
-    return re.sub(r'[*_#`]', '', text)
-
 async def edge_tts_generate(text):
     voice = "tr-TR-NesrinNeural"
     output_file = "output.mp3"
@@ -74,13 +64,15 @@ async def edge_tts_generate(text):
     await communicate.save(output_file)
 
 def play_audio(text):
-    clean = clean_text(text)
-    # Eğer metin bir hata mesajıysa (içinde 'error' geçiyorsa) okuma
-    if not clean.strip() or "error" in clean.lower() or "hata" in clean.lower():
+    # Temizlenmiş metni al
+    clean = clean_text_for_speech(text)
+    
+    # Eğer temizlendikten sonra geriye hiçbir şey kalmadıysa (sadece emoji atmışsa) ses çalma
+    if not clean or len(clean) < 2:
         return
         
     try:
-        # Asenkron döngü yönetimi (Loop Fix)
+        # Asenkron döngü yönetimi
         try:
             loop = asyncio.get_event_loop()
         except RuntimeError:
@@ -98,14 +90,26 @@ def play_audio(text):
             st.audio(audio_bytes, format="audio/mp3")
             
     except Exception as e:
-        st.warning(f"Ses çalınamadı: {e}")
+        # Hata olursa kullanıcıya yansıtma, loga yaz
+        print(f"Ses hatası: {e}")
 
-# --- 3. ADIM: SOHBET ---
+# --- 3. ADIM: SOHBET VE MODEL ---
+@st.cache_resource
+def get_best_model():
+    url = f"https://generativelanguage.googleapis.com/v1beta/models?key={API_KEY}"
+    try:
+        response = requests.get(url)
+        data = response.json()
+        if "models" in data:
+            for model in data["models"]:
+                if "generateContent" in model["supportedGenerationMethods"]:
+                    return model["name"]
+        return "models/gemini-1.5-flash"
+    except:
+        return "models/gemini-1.5-flash"
+
 def ask_google(history, new_msg):
-    # Otomatik bulunan modeli al
     model_name = get_best_model()
-    
-    # URL'yi oluştur
     url = f"https://generativelanguage.googleapis.com/v1beta/{model_name}:generateContent?key={API_KEY}"
     headers = {'Content-Type': 'application/json'}
     
@@ -120,8 +124,7 @@ def ask_google(history, new_msg):
         if response.status_code == 200:
             return response.json()['candidates'][0]['content']['parts'][0]['text']
         else:
-            # Hata kodunu direkt döndür
-            return f"Hata oluştu: {response.text}"
+            return f"Hata: {response.text}"
     except Exception as e:
         return f"Bağlantı sorunu: {str(e)}"
 
@@ -138,6 +141,5 @@ if prompt := st.chat_input("Yaz balım..."):
     
     with st.chat_message("model"):
         st.markdown(bot_reply)
-        # Sadece mesaj başarılıysa ses çal
         if "Hata" not in bot_reply:
             play_audio(bot_reply)
