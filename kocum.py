@@ -13,7 +13,7 @@ else:
 # 2. ElevenLabs Şifresini DİREKT BURAYA YAZIYORUZ
 # Lütfen aşağıdaki tırnakların içine şifreni yapıştır.
 # Örnek: ELEVEN_API_KEY = "sk_3458349583..."
-ELEVEN_API_KEY = "sk_edeee96725a0948c31d33d7b62db8db32ab724a3bfa7e510"
+ELEVEN_API_KEY = "6019f1a10c093505da3251b94e987bcdc8c5ae3a15b57fff4cec1a2524301a01"
 
 # --- SAYFA ---
 st.set_page_config(page_title="PCOS Nikosu", page_icon="🌸", layout="centered", initial_sidebar_state="collapsed")
@@ -134,3 +134,4 @@ if prompt := st.chat_input("Yaz balım..."):
         st.markdown(reply)
         if "Hata" not in reply:
             play_elevenlabs_audio(reply)
+
