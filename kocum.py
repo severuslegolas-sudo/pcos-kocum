@@ -8,7 +8,7 @@ import os
 # Şifreyi Streamlit Secrets kasasından çekiyoruz
 # Eğer kasa yapmadıysan buraya: API_KEY = "kendi_sifren" yaz.
 if "GOOGLE_API_KEY" in st.secrets:
-    API_KEY = st.secrets["AIzaSyDV_RU_d5a-e9wRpECsJOflYBeFaB8mxJs"]
+    API_KEY = "AIzaSyDV_RU_d5a-e9wRpECsJOflYBeFaB8mxJs"
 else:
     st.error("API Anahtarı bulunamadı! Lütfen Secrets ayarlarını yap.")
     st.stop()
