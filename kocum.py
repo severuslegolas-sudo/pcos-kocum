@@ -1,26 +1,22 @@
 import streamlit as st
 import requests
-from elevenlabs.client import ElevenLabs
 import re
 
-# --- AYARLAR VE GÜVENLİK ---
-# 1. Google Anahtarı Kontrolü
+# --- AYARLAR ---
 if "GOOGLE_API_KEY" in st.secrets:
     GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
 else:
-    st.error("Google API Anahtarı bulunamadı! Secrets ayarlarını kontrol et.")
+    st.error("Google Anahtarı Yok!")
     st.stop()
 
-# 2. ElevenLabs Anahtarı Kontrolü
 if "ELEVEN_API_KEY" in st.secrets:
     ELEVEN_API_KEY = st.secrets["ELEVEN_API_KEY"]
 else:
-    st.error("ElevenLabs API Anahtarı bulunamadı! Lütfen Adım 2'yi tekrar yap.")
+    st.error("ElevenLabs Anahtarı Yok! Secrets ayarına ekle.")
     st.stop()
 
-# --- SAYFA AYARLARI ---
+# --- SAYFA ---
 st.set_page_config(page_title="PCOS Nikosu", page_icon="🌸", layout="centered", initial_sidebar_state="collapsed")
-
 st.title("🌸 PCOS Nikosu")
 
 # --- MENÜ ---
@@ -31,7 +27,7 @@ with st.expander("📋 GÜNLÜK MENÜM", expanded=False):
     * **Gece:** Aslan pençesi 🌿
     """)
 
-# --- NİKOSU KİMLİĞİ ---
+# --- KİMLİK ---
 SYSTEM_PROMPT = """
 Sen 'PCOS Nikosu'sun. En yakın kız arkadaş gibi samimi konuş.
 Hitaplar: Balım, Kuzum, Çiçeğim.
@@ -47,59 +43,62 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# --- 1. ADIM: SES İÇİN TEMİZLİK ---
-def clean_text_final(text):
-    # Yıldızları, linkleri ve emojileri temizle
-    # ElevenLabs temiz metni daha güzel okur
+# --- SES (ELEVENLABS - DİREKT BAĞLANTI) ---
+def play_elevenlabs_audio(text):
+    # Temizlik
     clean = re.sub(r'[*_#`]', '', text)
     clean = re.sub(r'http\S+', '', clean)
-    clean = re.sub(r'[^a-zA-Z0-9çğıöşüÇĞİÖŞÜ .,!?\-\n]', '', clean)
-    return clean.strip()
-
-# --- 2. ADIM: ELEVENLABS SES OLUŞTURMA ---
-def play_elevenlabs_audio(text):
-    clean = clean_text_final(text)
+    clean = re.sub(r'[^a-zA-Z0-9çğıöşüÇĞİÖŞÜ .,!?\-\n]', '', clean).strip()
+    
     if not clean: return
 
-    try:
-        # ElevenLabs'e bağlan
-        client = ElevenLabs(api_key=ELEVEN_API_KEY)
-        
-        # Sesi oluştur
-        # Model: 'eleven_multilingual_v2' -> Bu model Türkçeyi mükemmel konuşur.
-        # Voice: 'Rachel' -> Tatlı bir kadın sesi.
-        audio_generator = client.generate(
-            text=clean,
-            voice="Rachel", 
-            model="eleven_multilingual_v2"
-        )
-        
-        # Gelen sesi birleştir ve çal
-        audio_bytes = b"".join(audio_generator)
-        st.audio(audio_bytes, format='audio/mp3')
-        
-    except Exception as e:
-        # Eğer kredi biterse veya hata olursa
-        st.warning(f"Ses oluşturulamadı (Kredi bitmiş olabilir): {e}")
+    # Rachel Sesinin ID'si (Sabittir)
+    VOICE_ID = "21m00Tcm4TlvDq8ikWAM" 
+    
+    url = f"https://api.elevenlabs.io/v1/text-to-speech/{VOICE_ID}"
+    
+    headers = {
+        "Accept": "audio/mpeg",
+        "Content-Type": "application/json",
+        "xi-api-key": ELEVEN_API_KEY
+    }
+    
+    data = {
+        "text": clean,
+        "model_id": "eleven_multilingual_v2", # Türkçe için en iyi model
+        "voice_settings": {
+            "stability": 0.5,
+            "similarity_boost": 0.75
+        }
+    }
 
-# --- 3. ADIM: GOOGLE MODEL BULUCU ---
-def get_working_model():
-    url = f"https://generativelanguage.googleapis.com/v1beta/models?key={GOOGLE_API_KEY}"
     try:
-        response = requests.get(url)
-        data = response.json()
-        if "models" in data:
-            for model in data["models"]:
-                if "generateContent" in model.get("supportedGenerationMethods", []):
-                    return model["name"]
+        response = requests.post(url, json=data, headers=headers)
+        
+        if response.status_code == 200:
+            st.audio(response.content, format='audio/mp3')
+        else:
+            # Hata varsa (Kredi bitti vs.) ekrana yazdırıp uyaralım
+            st.warning(f"Ses oluşturulamadı (Kod: {response.status_code})")
+            
+    except Exception as e:
+        st.warning(f"Bağlantı hatası: {e}")
+
+# --- GOOGLE MODEL ---
+def get_model():
+    try:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models?key={GOOGLE_API_KEY}"
+        data = requests.get(url).json()
+        for m in data.get("models", []):
+            if "generateContent" in m.get("supportedGenerationMethods", []):
+                return m["name"]
         return "models/gemini-pro"
     except:
         return "models/gemini-pro"
 
-# --- 4. ADIM: SOHBET ---
 def ask_google(history, new_msg):
-    model_name = get_working_model()
-    url = f"https://generativelanguage.googleapis.com/v1beta/{model_name}:generateContent?key={GOOGLE_API_KEY}"
+    model = get_model()
+    url = f"https://generativelanguage.googleapis.com/v1beta/{model}:generateContent?key={GOOGLE_API_KEY}"
     headers = {'Content-Type': 'application/json'}
     
     contents = [{"role": "user", "parts": [{"text": SYSTEM_PROMPT}]}]
@@ -109,13 +108,12 @@ def ask_google(history, new_msg):
     contents.append({"role": "user", "parts": [{"text": new_msg}]})
     
     try:
-        response = requests.post(url, headers=headers, json={"contents": contents})
-        if response.status_code == 200:
-            return response.json()['candidates'][0]['content']['parts'][0]['text']
-        else:
-            return f"Hata oldu balım ({response.status_code}): {response.text}"
-    except Exception as e:
-        return f"Bağlantı sorunu: {str(e)}"
+        res = requests.post(url, headers=headers, json={"contents": contents})
+        if res.status_code == 200:
+            return res.json()['candidates'][0]['content']['parts'][0]['text']
+        return "Hata oldu balım."
+    except:
+        return "Bağlantı hatası."
 
 # --- ARAYÜZ ---
 if prompt := st.chat_input("Yaz balım..."):
@@ -124,12 +122,11 @@ if prompt := st.chat_input("Yaz balım..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     
     with st.spinner('Nikosu düşünüyor...'):
-        bot_reply = ask_google(st.session_state.messages[:-1], prompt)
+        reply = ask_google(st.session_state.messages[:-1], prompt)
     
-    st.session_state.messages.append({"role": "model", "content": bot_reply})
+    st.session_state.messages.append({"role": "model", "content": reply})
     
     with st.chat_message("model"):
-        st.markdown(bot_reply)
-        
-        if "Hata" not in bot_reply:
-            play_elevenlabs_audio(bot_reply)
+        st.markdown(reply)
+        if "Hata" not in reply:
+            play_elevenlabs_audio(reply)
