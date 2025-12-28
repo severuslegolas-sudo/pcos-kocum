@@ -3,17 +3,17 @@ import requests
 import re
 
 # --- AYARLAR ---
+# 1. Google Şifresini Kasadan Al (Bu çalışıyor, dokunma)
 if "GOOGLE_API_KEY" in st.secrets:
     GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
 else:
     st.error("Google Anahtarı Yok!")
     st.stop()
 
-if "ELEVEN_API_KEY" in st.secrets:
-    ELEVEN_API_KEY = st.secrets["ELEVEN_API_KEY"]
-else:
-    st.error("ElevenLabs Anahtarı Yok! Secrets ayarına ekle.")
-    st.stop()
+# 2. ElevenLabs Şifresini DİREKT BURAYA YAZIYORUZ
+# Lütfen aşağıdaki tırnakların içine şifreni yapıştır.
+# Örnek: ELEVEN_API_KEY = "sk_3458349583..."
+ELEVEN_API_KEY = "sk_edeee96725a0948c31d33d7b62db8db32ab724a3bfa7e510"
 
 # --- SAYFA ---
 st.set_page_config(page_title="PCOS Nikosu", page_icon="🌸", layout="centered", initial_sidebar_state="collapsed")
@@ -43,7 +43,7 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# --- SES (ELEVENLABS - DİREKT BAĞLANTI) ---
+# --- SES (ELEVENLABS - DİREKT VE MANUEL) ---
 def play_elevenlabs_audio(text):
     # Temizlik
     clean = re.sub(r'[*_#`]', '', text)
@@ -52,7 +52,7 @@ def play_elevenlabs_audio(text):
     
     if not clean: return
 
-    # Rachel Sesinin ID'si (Sabittir)
+    # Rachel Ses ID
     VOICE_ID = "21m00Tcm4TlvDq8ikWAM" 
     
     url = f"https://api.elevenlabs.io/v1/text-to-speech/{VOICE_ID}"
@@ -60,12 +60,12 @@ def play_elevenlabs_audio(text):
     headers = {
         "Accept": "audio/mpeg",
         "Content-Type": "application/json",
-        "xi-api-key": ELEVEN_API_KEY
+        "xi-api-key": ELEVEN_API_KEY # Şifreyi buradan alacak
     }
     
     data = {
         "text": clean,
-        "model_id": "eleven_multilingual_v2", # Türkçe için en iyi model
+        "model_id": "eleven_multilingual_v2",
         "voice_settings": {
             "stability": 0.5,
             "similarity_boost": 0.75
@@ -73,13 +73,17 @@ def play_elevenlabs_audio(text):
     }
 
     try:
+        # Şifre kontrolü için log (Sadece senin göreceğin log)
+        print(f"Denenen Şifre İlk 5 Harf: {ELEVEN_API_KEY[:5]}...")
+        
         response = requests.post(url, json=data, headers=headers)
         
         if response.status_code == 200:
             st.audio(response.content, format='audio/mp3')
         else:
-            # Hata varsa (Kredi bitti vs.) ekrana yazdırıp uyaralım
-            st.warning(f"Ses oluşturulamadı (Kod: {response.status_code})")
+            # Hata detayını gösterelim
+            st.warning(f"Ses oluşturulamadı. Hata Kodu: {response.status_code}")
+            st.code(response.text) # Hatanın tam metnini görelim
             
     except Exception as e:
         st.warning(f"Bağlantı hatası: {e}")
